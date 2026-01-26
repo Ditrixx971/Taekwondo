@@ -136,11 +136,13 @@ function AppRouter() {
       <Route path="/competiteurs" element={<ProtectedRoute><CompetiteursPage /></ProtectedRoute>} />
       <Route path="/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
       <Route path="/combats" element={<ProtectedRoute><CombatsPage /></ProtectedRoute>} />
+      <Route path="/combats-suivre" element={<ProtectedRoute><CombatsSuivrePage /></ProtectedRoute>} />
+      <Route path="/arbre-combats" element={<ProtectedRoute><ArbreCombatsPage /></ProtectedRoute>} />
       <Route path="/resultats" element={<ProtectedRoute><ResultatsPage /></ProtectedRoute>} />
       <Route path="/tatamis" element={<ProtectedRoute><TatamisPage /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
       <Route path="/historique" element={<ProtectedRoute><HistoriquePage /></ProtectedRoute>} />
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/combats-suivre" replace />} />
     </Routes>
   );
 }
