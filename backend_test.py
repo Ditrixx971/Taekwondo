@@ -46,19 +46,16 @@ class TaekwondoAPITester:
         """Make API request with error handling"""
         url = f"{self.api_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
-        
-        if self.session_token:
-            headers['Authorization'] = f'Bearer {self.session_token}'
 
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, timeout=10)
+                response = self.session.get(url, headers=headers, timeout=10)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
+                response = self.session.post(url, json=data, headers=headers, timeout=10)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers, timeout=10)
+                response = self.session.put(url, json=data, headers=headers, timeout=10)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers, timeout=10)
+                response = self.session.delete(url, headers=headers, timeout=10)
             else:
                 return False, {"error": f"Unsupported method: {method}"}
 
