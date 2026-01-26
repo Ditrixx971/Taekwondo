@@ -933,59 +933,6 @@ async def attribuer_medailles(categorie_id: str, user: User = Depends(require_ad
     
     return {"message": f"{len(medailles)} médailles attribuées", "medailles": medailles}
 
-# ============ COMBATS A SUIVRE & PLANIFICATION ============
-
-@api_router.get("/combats/suivre")
-async def combats_a_suivre(
-    categorie_id: Optional[str] = None,
-    tatami_id: Optional[str] = None,
-    tour: Optional[str] = None,
-    statut: Optional[str] = None,
-    user: User = Depends(get_current_user)
-):
-    """Récupère les combats à suivre avec filtres"""
-    query = {"statut": {"$ne": "termine"}} if not statut else {}
-    
-    if categorie_id:
-        query["categorie_id"] = categorie_id
-    if tatami_id:
-        query["tatami_id"] = tatami_id
-    if tour:
-        query["tour"] = tour
-    if statut:
-        query["statut"] = statut
-    
-    combats = await db.combats.find(query, {"_id": 0}).sort("ordre", 1).to_list(500)
-    
-    # Enrichir avec les noms des compétiteurs et catégories
-    for combat in combats:
-        if combat.get("rouge_id"):
-            rouge = await db.competiteurs.find_one({"competiteur_id": combat["rouge_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
-            combat["rouge_nom"] = f"{rouge['prenom']} {rouge['nom']}" if rouge else "Inconnu"
-            combat["rouge_club"] = rouge.get("club", "") if rouge else ""
-        else:
-            combat["rouge_nom"] = "À déterminer"
-            combat["rouge_club"] = ""
-            
-        if combat.get("bleu_id"):
-            bleu = await db.competiteurs.find_one({"competiteur_id": combat["bleu_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
-            combat["bleu_nom"] = f"{bleu['prenom']} {bleu['nom']}" if bleu else "Inconnu"
-            combat["bleu_club"] = bleu.get("club", "") if bleu else ""
-        else:
-            combat["bleu_nom"] = "À déterminer"
-            combat["bleu_club"] = ""
-        
-        cat = await db.categories.find_one({"categorie_id": combat["categorie_id"]}, {"_id": 0, "nom": 1})
-        combat["categorie_nom"] = cat["nom"] if cat else "Inconnue"
-        
-        if combat.get("tatami_id"):
-            tatami = await db.tatamis.find_one({"tatami_id": combat["tatami_id"]}, {"_id": 0, "nom": 1, "numero": 1})
-            combat["tatami_nom"] = tatami["nom"] if tatami else "Non assigné"
-        else:
-            combat["tatami_nom"] = "Non assigné"
-    
-    return combats
-
 @api_router.put("/combats/{combat_id}/statut")
 async def modifier_statut_combat(combat_id: str, statut: str, user: User = Depends(require_admin)):
     """Modifier le statut d'un combat (a_venir, en_cours, termine, non_dispute)"""
@@ -1137,49 +1084,6 @@ async def passer_combat_suivant(combat_id: str, user: User = Depends(require_adm
         return {"message": "Combat suivant lancé", "combat_id": prochain["combat_id"]}
     
     return {"message": "Plus de combat à suivre"}
-
-@api_router.get("/combats/arbre/{categorie_id}")
-async def get_arbre_combats(categorie_id: str, user: User = Depends(get_current_user)):
-    """Récupère l'arbre complet des combats pour une catégorie (pour affichage et export PDF)"""
-    combats = await db.combats.find({"categorie_id": categorie_id}, {"_id": 0}).to_list(100)
-    
-    # Enrichir avec les informations
-    arbre = {"quart": [], "demi": [], "bronze": [], "finale": []}
-    
-    for combat in combats:
-        # Ajouter les noms des compétiteurs
-        if combat.get("rouge_id"):
-            rouge = await db.competiteurs.find_one({"competiteur_id": combat["rouge_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
-            combat["rouge"] = {"nom": f"{rouge['prenom']} {rouge['nom']}", "club": rouge.get("club", "")} if rouge else {"nom": "Inconnu", "club": ""}
-        else:
-            combat["rouge"] = {"nom": "À déterminer", "club": ""}
-            
-        if combat.get("bleu_id"):
-            bleu = await db.competiteurs.find_one({"competiteur_id": combat["bleu_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
-            combat["bleu"] = {"nom": f"{bleu['prenom']} {bleu['nom']}", "club": bleu.get("club", "")} if bleu else {"nom": "Inconnu", "club": ""}
-        else:
-            combat["bleu"] = {"nom": "À déterminer", "club": ""}
-        
-        # Ajouter le vainqueur si terminé
-        if combat.get("vainqueur_id"):
-            vainqueur = await db.competiteurs.find_one({"competiteur_id": combat["vainqueur_id"]}, {"_id": 0, "nom": 1, "prenom": 1})
-            combat["vainqueur_nom"] = f"{vainqueur['prenom']} {vainqueur['nom']}" if vainqueur else "Inconnu"
-        
-        arbre[combat["tour"]].append(combat)
-    
-    # Trier par position
-    for tour in arbre:
-        arbre[tour] = sorted(arbre[tour], key=lambda x: x.get("position", 0))
-    
-    # Ajouter les infos de la catégorie
-    categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
-    
-    return {
-        "categorie": categorie,
-        "arbre": arbre,
-        "total_combats": len(combats),
-        "combats_termines": len([c for c in combats if c.get("termine")])
-    }
 
 # ============ MEDAILLES ENDPOINTS ============
 
