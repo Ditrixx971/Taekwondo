@@ -572,20 +572,21 @@ async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_c
     comp_dict = comp.model_dump()
     comp_dict["created_at"] = comp_dict["created_at"].isoformat()
     
-    categorie_id = await assign_categorie(comp_dict)
+    categorie_id = await assign_categorie(comp_dict, data.competition_id)
     comp_dict["categorie_id"] = categorie_id
     
     await db.competiteurs.insert_one(comp_dict)
+    comp_dict.pop("_id", None)
     return comp_dict
 
-@api_router.put("/competiteurs/{competiteur_id}", response_model=Competiteur)
+@api_router.put("/competiteurs/{competiteur_id}")
 async def update_competiteur(competiteur_id: str, data: CompetiteurCreate, user: User = Depends(require_admin)):
     existing = await db.competiteurs.find_one({"competiteur_id": competiteur_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
     
     update_data = data.model_dump()
-    categorie_id = await assign_categorie({**update_data, "date_naissance": update_data["date_naissance"]})
+    categorie_id = await assign_categorie({**update_data, "date_naissance": update_data["date_naissance"]}, data.competition_id)
     update_data["categorie_id"] = categorie_id
     
     await db.competiteurs.update_one(
