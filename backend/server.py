@@ -101,13 +101,18 @@ class Combat(BaseModel):
     tatami_id: Optional[str] = None
     tour: str  # quart, demi, finale, bronze
     position: int  # position in bracket
+    ordre: int = 0  # ordre d'exécution global
     rouge_id: Optional[str] = None
     bleu_id: Optional[str] = None
     vainqueur_id: Optional[str] = None
     score_rouge: int = 0
     score_bleu: int = 0
     type_victoire: Optional[str] = None  # normal, forfait, abandon, disqualification
+    statut: str = "a_venir"  # a_venir, en_cours, termine, non_dispute
     termine: bool = False
+    heure_debut: Optional[str] = None  # ISO format
+    duree_minutes: int = 6  # durée estimée en minutes
+    est_pause: bool = False  # si c'est un créneau de pause
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class CombatResultat(BaseModel):
@@ -115,6 +120,16 @@ class CombatResultat(BaseModel):
     score_rouge: int = 0
     score_bleu: int = 0
     type_victoire: str = "normal"
+
+class PlanificationCreate(BaseModel):
+    heure_debut_competition: str  # ISO format ex: "09:00"
+    duree_combat_minutes: int = 6
+    pauses: List[dict] = []  # [{"apres_combat": 10, "duree_minutes": 15}]
+
+class ModifierOrdreCombat(BaseModel):
+    combat_id: str
+    nouvel_ordre: int
+    nouvelle_heure: Optional[str] = None
 
 class Medaille(BaseModel):
     model_config = ConfigDict(extra="ignore")
