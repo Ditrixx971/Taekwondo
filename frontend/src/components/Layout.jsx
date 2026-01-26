@@ -17,7 +17,8 @@ import {
   Grid3X3,
   Eye,
   GitBranch,
-  Settings
+  Scale,
+  Calendar
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -26,9 +27,11 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const navItems = [
+  { path: "/competitions", label: "Compétitions", icon: Calendar },
   { path: "/combats-suivre", label: "Combats à suivre", icon: Eye },
   { path: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { path: "/competiteurs", label: "Compétiteurs", icon: Users },
+  { path: "/pesee", label: "Pesée", icon: Scale },
   { path: "/categories", label: "Catégories", icon: FolderKanban },
   { path: "/tatamis", label: "Tatamis", icon: Grid3X3 },
   { path: "/combats", label: "Gestion Combats", icon: Swords },
