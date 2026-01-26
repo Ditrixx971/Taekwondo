@@ -102,6 +102,7 @@ class PeseeUpdate(BaseModel):
 class Categorie(BaseModel):
     model_config = ConfigDict(extra="ignore")
     categorie_id: str = Field(default_factory=lambda: f"cat_{uuid.uuid4().hex[:12]}")
+    competition_id: str  # Lié à une compétition
     nom: str
     age_min: int
     age_max: int
@@ -110,6 +111,7 @@ class Categorie(BaseModel):
     poids_max: float
 
 class CategorieCreate(BaseModel):
+    competition_id: str
     nom: str
     age_min: int
     age_max: int
@@ -120,16 +122,19 @@ class CategorieCreate(BaseModel):
 class Tatami(BaseModel):
     model_config = ConfigDict(extra="ignore")
     tatami_id: str = Field(default_factory=lambda: f"tat_{uuid.uuid4().hex[:12]}")
+    competition_id: str  # Lié à une compétition
     nom: str
     numero: int
 
 class TatamiCreate(BaseModel):
+    competition_id: str
     nom: str
     numero: int
 
 class Combat(BaseModel):
     model_config = ConfigDict(extra="ignore")
     combat_id: str = Field(default_factory=lambda: f"cbt_{uuid.uuid4().hex[:12]}")
+    competition_id: str  # Lié à une compétition
     categorie_id: str
     tatami_id: Optional[str] = None
     tour: str  # quart, demi, finale, bronze
@@ -140,7 +145,7 @@ class Combat(BaseModel):
     vainqueur_id: Optional[str] = None
     score_rouge: int = 0
     score_bleu: int = 0
-    type_victoire: Optional[str] = None  # normal, forfait, abandon, disqualification
+    type_victoire: Optional[str] = None  # normal, forfait, abandon, disqualification, non_dispute
     statut: str = "a_venir"  # a_venir, en_cours, termine, non_dispute
     termine: bool = False
     heure_debut: Optional[str] = None  # ISO format
