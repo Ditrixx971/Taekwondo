@@ -838,6 +838,254 @@ async def attribuer_medailles(categorie_id: str, user: User = Depends(require_ad
     
     return {"message": f"{len(medailles)} médailles attribuées", "medailles": medailles}
 
+# ============ COMBATS A SUIVRE & PLANIFICATION ============
+
+@api_router.get("/combats/suivre")
+async def combats_a_suivre(
+    categorie_id: Optional[str] = None,
+    tatami_id: Optional[str] = None,
+    tour: Optional[str] = None,
+    statut: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Récupère les combats à suivre avec filtres"""
+    query = {"statut": {"$ne": "termine"}} if not statut else {}
+    
+    if categorie_id:
+        query["categorie_id"] = categorie_id
+    if tatami_id:
+        query["tatami_id"] = tatami_id
+    if tour:
+        query["tour"] = tour
+    if statut:
+        query["statut"] = statut
+    
+    combats = await db.combats.find(query, {"_id": 0}).sort("ordre", 1).to_list(500)
+    
+    # Enrichir avec les noms des compétiteurs et catégories
+    for combat in combats:
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one({"competiteur_id": combat["rouge_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            combat["rouge_nom"] = f"{rouge['prenom']} {rouge['nom']}" if rouge else "Inconnu"
+            combat["rouge_club"] = rouge.get("club", "") if rouge else ""
+        else:
+            combat["rouge_nom"] = "À déterminer"
+            combat["rouge_club"] = ""
+            
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one({"competiteur_id": combat["bleu_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            combat["bleu_nom"] = f"{bleu['prenom']} {bleu['nom']}" if bleu else "Inconnu"
+            combat["bleu_club"] = bleu.get("club", "") if bleu else ""
+        else:
+            combat["bleu_nom"] = "À déterminer"
+            combat["bleu_club"] = ""
+        
+        cat = await db.categories.find_one({"categorie_id": combat["categorie_id"]}, {"_id": 0, "nom": 1})
+        combat["categorie_nom"] = cat["nom"] if cat else "Inconnue"
+        
+        if combat.get("tatami_id"):
+            tatami = await db.tatamis.find_one({"tatami_id": combat["tatami_id"]}, {"_id": 0, "nom": 1, "numero": 1})
+            combat["tatami_nom"] = tatami["nom"] if tatami else "Non assigné"
+        else:
+            combat["tatami_nom"] = "Non assigné"
+    
+    return combats
+
+@api_router.put("/combats/{combat_id}/statut")
+async def modifier_statut_combat(combat_id: str, statut: str, user: User = Depends(require_admin)):
+    """Modifier le statut d'un combat (a_venir, en_cours, termine, non_dispute)"""
+    if statut not in ["a_venir", "en_cours", "termine", "non_dispute"]:
+        raise HTTPException(status_code=400, detail="Statut invalide")
+    
+    result = await db.combats.update_one(
+        {"combat_id": combat_id},
+        {"$set": {"statut": statut, "termine": statut in ["termine", "non_dispute"]}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    return {"message": "Statut mis à jour"}
+
+@api_router.post("/combats/planifier/{categorie_id}")
+async def planifier_combats(categorie_id: str, data: PlanificationCreate, user: User = Depends(require_admin)):
+    """Planifier les horaires des combats d'une catégorie"""
+    combats = await db.combats.find(
+        {"categorie_id": categorie_id},
+        {"_id": 0}
+    ).sort([("tour", 1), ("position", 1)]).to_list(100)
+    
+    if not combats:
+        raise HTTPException(status_code=404, detail="Aucun combat trouvé")
+    
+    # Définir l'ordre des tours
+    tour_ordre = {"quart": 1, "demi": 2, "bronze": 3, "finale": 4}
+    combats_sorted = sorted(combats, key=lambda x: (tour_ordre.get(x["tour"], 99), x["position"]))
+    
+    # Parser l'heure de début
+    try:
+        heure_parts = data.heure_debut_competition.split(":")
+        current_hour = int(heure_parts[0])
+        current_minute = int(heure_parts[1])
+    except:
+        raise HTTPException(status_code=400, detail="Format d'heure invalide (HH:MM)")
+    
+    # Planifier chaque combat
+    pauses_dict = {p.get("apres_combat", 0): p.get("duree_minutes", 15) for p in data.pauses}
+    
+    for i, combat in enumerate(combats_sorted):
+        heure = f"{current_hour:02d}:{current_minute:02d}"
+        
+        await db.combats.update_one(
+            {"combat_id": combat["combat_id"]},
+            {"$set": {
+                "ordre": i + 1,
+                "heure_debut": heure,
+                "duree_minutes": data.duree_combat_minutes
+            }}
+        )
+        
+        # Ajouter la durée du combat
+        current_minute += data.duree_combat_minutes
+        
+        # Ajouter une pause si définie
+        if (i + 1) in pauses_dict:
+            current_minute += pauses_dict[i + 1]
+        
+        # Gérer le dépassement d'heure
+        while current_minute >= 60:
+            current_minute -= 60
+            current_hour += 1
+    
+    return {"message": f"{len(combats_sorted)} combats planifiés", "heure_fin_estimee": f"{current_hour:02d}:{current_minute:02d}"}
+
+@api_router.put("/combats/modifier-ordre")
+async def modifier_ordre_combat(data: ModifierOrdreCombat, user: User = Depends(require_admin)):
+    """Modifier l'ordre d'un combat et recalculer les horaires si nécessaire"""
+    combat = await db.combats.find_one({"combat_id": data.combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    update_data = {"ordre": data.nouvel_ordre}
+    if data.nouvelle_heure:
+        update_data["heure_debut"] = data.nouvelle_heure
+    
+    await db.combats.update_one(
+        {"combat_id": data.combat_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Ordre mis à jour"}
+
+@api_router.post("/combats/lancer-categorie/{categorie_id}")
+async def lancer_categorie(categorie_id: str, mode: str = "complet", user: User = Depends(require_admin)):
+    """
+    Lancer les combats d'une catégorie
+    mode: 'complet' = tous les combats, 'finales_fin' = tous sauf finales
+    """
+    if mode not in ["complet", "finales_fin"]:
+        raise HTTPException(status_code=400, detail="Mode invalide (complet ou finales_fin)")
+    
+    query = {"categorie_id": categorie_id, "statut": "a_venir"}
+    if mode == "finales_fin":
+        query["tour"] = {"$nin": ["finale", "bronze"]}
+    
+    # Mettre le premier combat en cours
+    premier_combat = await db.combats.find_one(query, {"_id": 0}, sort=[("ordre", 1)])
+    
+    if premier_combat:
+        await db.combats.update_one(
+            {"combat_id": premier_combat["combat_id"]},
+            {"$set": {"statut": "en_cours"}}
+        )
+        return {"message": f"Catégorie lancée en mode {mode}", "premier_combat": premier_combat["combat_id"]}
+    
+    return {"message": "Aucun combat à lancer"}
+
+@api_router.post("/combats/lancer-finales")
+async def lancer_finales(user: User = Depends(require_admin)):
+    """Lancer toutes les finales de toutes les catégories"""
+    finales = await db.combats.find(
+        {"tour": {"$in": ["finale", "bronze"]}, "statut": "a_venir"},
+        {"_id": 0}
+    ).sort("ordre", 1).to_list(100)
+    
+    if finales:
+        # Mettre la première finale en cours
+        await db.combats.update_one(
+            {"combat_id": finales[0]["combat_id"]},
+            {"$set": {"statut": "en_cours"}}
+        )
+        return {"message": f"{len(finales)} finales prêtes à être lancées", "premiere_finale": finales[0]["combat_id"]}
+    
+    return {"message": "Aucune finale à lancer"}
+
+@api_router.post("/combats/{combat_id}/suivant")
+async def passer_combat_suivant(combat_id: str, user: User = Depends(require_admin)):
+    """Terminer le combat actuel et passer au suivant"""
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    # Trouver le prochain combat
+    prochain = await db.combats.find_one(
+        {"ordre": {"$gt": combat.get("ordre", 0)}, "statut": "a_venir"},
+        {"_id": 0},
+        sort=[("ordre", 1)]
+    )
+    
+    if prochain:
+        await db.combats.update_one(
+            {"combat_id": prochain["combat_id"]},
+            {"$set": {"statut": "en_cours"}}
+        )
+        return {"message": "Combat suivant lancé", "combat_id": prochain["combat_id"]}
+    
+    return {"message": "Plus de combat à suivre"}
+
+@api_router.get("/combats/arbre/{categorie_id}")
+async def get_arbre_combats(categorie_id: str, user: User = Depends(get_current_user)):
+    """Récupère l'arbre complet des combats pour une catégorie (pour affichage et export PDF)"""
+    combats = await db.combats.find({"categorie_id": categorie_id}, {"_id": 0}).to_list(100)
+    
+    # Enrichir avec les informations
+    arbre = {"quart": [], "demi": [], "bronze": [], "finale": []}
+    
+    for combat in combats:
+        # Ajouter les noms des compétiteurs
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one({"competiteur_id": combat["rouge_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            combat["rouge"] = {"nom": f"{rouge['prenom']} {rouge['nom']}", "club": rouge.get("club", "")} if rouge else {"nom": "Inconnu", "club": ""}
+        else:
+            combat["rouge"] = {"nom": "À déterminer", "club": ""}
+            
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one({"competiteur_id": combat["bleu_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            combat["bleu"] = {"nom": f"{bleu['prenom']} {bleu['nom']}", "club": bleu.get("club", "")} if bleu else {"nom": "Inconnu", "club": ""}
+        else:
+            combat["bleu"] = {"nom": "À déterminer", "club": ""}
+        
+        # Ajouter le vainqueur si terminé
+        if combat.get("vainqueur_id"):
+            vainqueur = await db.competiteurs.find_one({"competiteur_id": combat["vainqueur_id"]}, {"_id": 0, "nom": 1, "prenom": 1})
+            combat["vainqueur_nom"] = f"{vainqueur['prenom']} {vainqueur['nom']}" if vainqueur else "Inconnu"
+        
+        arbre[combat["tour"]].append(combat)
+    
+    # Trier par position
+    for tour in arbre:
+        arbre[tour] = sorted(arbre[tour], key=lambda x: x.get("position", 0))
+    
+    # Ajouter les infos de la catégorie
+    categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
+    
+    return {
+        "categorie": categorie,
+        "arbre": arbre,
+        "total_combats": len(combats),
+        "combats_termines": len([c for c in combats if c.get("termine")])
+    }
+
 # ============ MEDAILLES ENDPOINTS ============
 
 @api_router.get("/medailles", response_model=List[Medaille])
