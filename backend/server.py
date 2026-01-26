@@ -604,18 +604,116 @@ async def delete_competiteur(competiteur_id: str, user: User = Depends(require_a
         raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
     return {"message": "Compétiteur supprimé"}
 
+# ============ PESEE ENDPOINTS ============
+
+@api_router.get("/pesee/{competition_id}")
+async def list_pesee(competition_id: str, user: User = Depends(get_current_user)):
+    """Liste tous les compétiteurs pour la pesée d'une compétition"""
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    competiteurs = await db.competiteurs.find(
+        {"competition_id": competition_id},
+        {"_id": 0}
+    ).sort([("club", 1), ("nom", 1)]).to_list(1000)
+    
+    # Enrichir avec les noms des catégories
+    for comp in competiteurs:
+        if comp.get("categorie_id"):
+            cat = await db.categories.find_one({"categorie_id": comp["categorie_id"]}, {"_id": 0, "nom": 1})
+            comp["categorie_nom"] = cat["nom"] if cat else "Non assignée"
+        else:
+            comp["categorie_nom"] = "Non assignée"
+    
+    return competiteurs
+
+@api_router.put("/pesee/{competiteur_id}")
+async def enregistrer_pesee(competiteur_id: str, data: PeseeUpdate, user: User = Depends(require_admin)):
+    """Enregistre le poids officiel d'un compétiteur (admin uniquement)"""
+    comp = await db.competiteurs.find_one({"competiteur_id": competiteur_id}, {"_id": 0})
+    if not comp:
+        raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
+    
+    # Mettre à jour le poids officiel
+    update_data = {
+        "poids_officiel": data.poids_officiel,
+        "pese": True
+    }
+    
+    # Recalculer la catégorie basée sur le poids officiel
+    comp_updated = {**comp, "poids_officiel": data.poids_officiel}
+    nouvelle_categorie = await assign_categorie(comp_updated, comp["competition_id"])
+    
+    ancienne_categorie = comp.get("categorie_id")
+    update_data["categorie_id"] = nouvelle_categorie
+    
+    await db.competiteurs.update_one(
+        {"competiteur_id": competiteur_id},
+        {"$set": update_data}
+    )
+    
+    # Si la catégorie a changé, notifier
+    categorie_changee = ancienne_categorie != nouvelle_categorie
+    
+    return {
+        "message": "Pesée enregistrée",
+        "poids_officiel": data.poids_officiel,
+        "categorie_id": nouvelle_categorie,
+        "categorie_changee": categorie_changee
+    }
+
+@api_router.put("/pesee/{competiteur_id}/poids-declare")
+async def enregistrer_poids_declare(competiteur_id: str, poids: float, user: User = Depends(get_current_user)):
+    """Enregistre/modifie le poids déclaré (coach peut modifier)"""
+    comp = await db.competiteurs.find_one({"competiteur_id": competiteur_id}, {"_id": 0})
+    if not comp:
+        raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
+    
+    if not await user_can_access_competition(user, comp["competition_id"]):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    await db.competiteurs.update_one(
+        {"competiteur_id": competiteur_id},
+        {"$set": {"poids_declare": poids}}
+    )
+    
+    return {"message": "Poids déclaré mis à jour", "poids_declare": poids}
+
+@api_router.delete("/pesee/{competiteur_id}")
+async def annuler_pesee(competiteur_id: str, user: User = Depends(require_admin)):
+    """Annule la pesée d'un compétiteur"""
+    comp = await db.competiteurs.find_one({"competiteur_id": competiteur_id}, {"_id": 0})
+    if not comp:
+        raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
+    
+    # Recalculer la catégorie basée sur le poids déclaré
+    comp_updated = {**comp, "poids_officiel": None}
+    nouvelle_categorie = await assign_categorie(comp_updated, comp["competition_id"])
+    
+    await db.competiteurs.update_one(
+        {"competiteur_id": competiteur_id},
+        {"$set": {"poids_officiel": None, "pese": False, "categorie_id": nouvelle_categorie}}
+    )
+    
+    return {"message": "Pesée annulée"}
+
 # ============ CATEGORIES ENDPOINTS ============
 
-@api_router.get("/categories", response_model=List[Categorie])
-async def list_categories(user: User = Depends(get_current_user)):
-    categories = await db.categories.find({}, {"_id": 0}).to_list(100)
+@api_router.get("/categories")
+async def list_categories(competition_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {}
+    if competition_id:
+        query["competition_id"] = competition_id
+    
+    categories = await db.categories.find(query, {"_id": 0}).to_list(100)
     return categories
 
-@api_router.post("/categories", response_model=Categorie)
+@api_router.post("/categories")
 async def create_categorie(data: CategorieCreate, user: User = Depends(require_admin)):
     cat = Categorie(**data.model_dump())
     cat_dict = cat.model_dump()
     await db.categories.insert_one(cat_dict)
+    cat_dict.pop("_id", None)
     return cat_dict
 
 @api_router.delete("/categories/{categorie_id}")
@@ -627,16 +725,21 @@ async def delete_categorie(categorie_id: str, user: User = Depends(require_admin
 
 # ============ TATAMIS ENDPOINTS ============
 
-@api_router.get("/tatamis", response_model=List[Tatami])
-async def list_tatamis(user: User = Depends(get_current_user)):
-    tatamis = await db.tatamis.find({}, {"_id": 0}).to_list(100)
+@api_router.get("/tatamis")
+async def list_tatamis(competition_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {}
+    if competition_id:
+        query["competition_id"] = competition_id
+    
+    tatamis = await db.tatamis.find(query, {"_id": 0}).to_list(100)
     return tatamis
 
-@api_router.post("/tatamis", response_model=Tatami)
+@api_router.post("/tatamis")
 async def create_tatami(data: TatamiCreate, user: User = Depends(require_admin)):
     tat = Tatami(**data.model_dump())
     tat_dict = tat.model_dump()
     await db.tatamis.insert_one(tat_dict)
+    tat_dict.pop("_id", None)
     return tat_dict
 
 @api_router.delete("/tatamis/{tatami_id}")
