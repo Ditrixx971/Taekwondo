@@ -933,6 +933,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         # Cas spécial: 2 en demi, 1 direct en finale
         # Demi-finale
         demi = Combat(
+            competition_id=competition_id,
             categorie_id=categorie_id,
             tatami_id=tatami_id,
             tour="demi",
@@ -945,6 +946,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         
         # Finale (vainqueur demi vs 3ème)
         finale = Combat(
+            competition_id=competition_id,
             categorie_id=categorie_id,
             tatami_id=tatami_id,
             tour="finale",
@@ -959,6 +961,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         # 2 demi-finales + 1 finale + match bronze
         for i in range(2):
             demi = Combat(
+                competition_id=competition_id,
                 categorie_id=categorie_id,
                 tatami_id=tatami_id,
                 tour="demi",
@@ -971,6 +974,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         
         # Finale
         finale = Combat(
+            competition_id=competition_id,
             categorie_id=categorie_id,
             tatami_id=tatami_id,
             tour="finale",
@@ -983,6 +987,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         
         # Match bronze
         bronze = Combat(
+            competition_id=competition_id,
             categorie_id=categorie_id,
             tatami_id=tatami_id,
             tour="bronze",
