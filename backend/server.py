@@ -385,6 +385,121 @@ async def logout(request: Request, response: Response):
     response.delete_cookie("session_token", path="/", samesite="none", secure=True)
     return {"message": "Déconnecté"}
 
+# ============ COMPETITIONS ENDPOINTS ============
+
+async def user_can_access_competition(user: User, competition_id: str) -> bool:
+    """Vérifie si l'utilisateur peut accéder à une compétition"""
+    if user.role == "admin":
+        return True
+    
+    competition = await db.competitions.find_one(
+        {"competition_id": competition_id},
+        {"_id": 0, "coaches_autorises": 1}
+    )
+    if not competition:
+        return False
+    
+    return user.user_id in competition.get("coaches_autorises", [])
+
+@api_router.get("/competitions")
+async def list_competitions(statut: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Liste les compétitions accessibles à l'utilisateur"""
+    query = {}
+    if statut:
+        query["statut"] = statut
+    
+    if user.role == "admin":
+        # Admin voit toutes les compétitions
+        competitions = await db.competitions.find(query, {"_id": 0}).sort("date", -1).to_list(100)
+    else:
+        # Coach ne voit que les compétitions où il est autorisé
+        query["coaches_autorises"] = user.user_id
+        competitions = await db.competitions.find(query, {"_id": 0}).sort("date", -1).to_list(100)
+    
+    return competitions
+
+@api_router.get("/competitions/{competition_id}")
+async def get_competition(competition_id: str, user: User = Depends(get_current_user)):
+    """Récupère une compétition spécifique"""
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette compétition")
+    
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    # Ajouter les stats
+    competition["nb_competiteurs"] = await db.competiteurs.count_documents({"competition_id": competition_id})
+    competition["nb_combats"] = await db.combats.count_documents({"competition_id": competition_id})
+    competition["nb_combats_termines"] = await db.combats.count_documents({"competition_id": competition_id, "termine": True})
+    
+    return competition
+
+@api_router.post("/competitions")
+async def create_competition(data: CompetitionCreate, user: User = Depends(require_admin)):
+    """Crée une nouvelle compétition (admin uniquement)"""
+    competition = Competition(**data.model_dump(), created_by=user.user_id)
+    comp_dict = competition.model_dump()
+    comp_dict["created_at"] = comp_dict["created_at"].isoformat()
+    
+    await db.competitions.insert_one(comp_dict)
+    comp_dict.pop("_id", None)
+    
+    return comp_dict
+
+@api_router.put("/competitions/{competition_id}")
+async def update_competition(competition_id: str, data: CompetitionCreate, user: User = Depends(require_admin)):
+    """Met à jour une compétition"""
+    existing = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    update_data = data.model_dump()
+    await db.competitions.update_one(
+        {"competition_id": competition_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Compétition mise à jour"}
+
+@api_router.put("/competitions/{competition_id}/statut")
+async def update_competition_statut(competition_id: str, statut: str, user: User = Depends(require_admin)):
+    """Change le statut d'une compétition (active, terminee, annulee)"""
+    if statut not in ["active", "terminee", "annulee"]:
+        raise HTTPException(status_code=400, detail="Statut invalide")
+    
+    result = await db.competitions.update_one(
+        {"competition_id": competition_id},
+        {"$set": {"statut": statut}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    return {"message": f"Statut mis à jour: {statut}"}
+
+@api_router.delete("/competitions/{competition_id}")
+async def delete_competition(competition_id: str, user: User = Depends(require_admin)):
+    """Supprime une compétition et toutes ses données"""
+    # Supprimer les données liées
+    await db.combats.delete_many({"competition_id": competition_id})
+    await db.competiteurs.delete_many({"competition_id": competition_id})
+    await db.categories.delete_many({"competition_id": competition_id})
+    await db.tatamis.delete_many({"competition_id": competition_id})
+    await db.medailles.delete_many({"competition_id": competition_id})
+    
+    result = await db.competitions.delete_one({"competition_id": competition_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    return {"message": "Compétition supprimée"}
+
+@api_router.get("/coaches")
+async def list_coaches(user: User = Depends(require_admin)):
+    """Liste tous les coachs pour assignation aux compétitions"""
+    coaches = await db.users.find({"role": "coach"}, {"_id": 0, "password": 0}).to_list(100)
+    return coaches
+
 # ============ COMPETITEURS ENDPOINTS ============
 
 def calculate_age(date_naissance: str) -> int:
@@ -392,12 +507,14 @@ def calculate_age(date_naissance: str) -> int:
     today = datetime.now()
     return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
 
-async def assign_categorie(competiteur: dict) -> Optional[str]:
+async def assign_categorie(competiteur: dict, competition_id: str) -> Optional[str]:
+    """Assigne une catégorie basée sur le poids officiel (si pesé) ou déclaré"""
     age = calculate_age(competiteur["date_naissance"])
-    poids = competiteur["poids"]
+    poids = competiteur.get("poids_officiel") or competiteur.get("poids_declare")
     sexe = competiteur["sexe"]
     
     categorie = await db.categories.find_one({
+        "competition_id": competition_id,
         "sexe": sexe,
         "age_min": {"$lte": age},
         "age_max": {"$gte": age},
@@ -407,27 +524,51 @@ async def assign_categorie(competiteur: dict) -> Optional[str]:
     
     return categorie["categorie_id"] if categorie else None
 
-@api_router.get("/competiteurs", response_model=List[Competiteur])
-async def list_competiteurs(categorie_id: Optional[str] = None, club: Optional[str] = None, user: User = Depends(get_current_user)):
+@api_router.get("/competiteurs")
+async def list_competiteurs(
+    competition_id: Optional[str] = None,
+    categorie_id: Optional[str] = None, 
+    club: Optional[str] = None,
+    pese: Optional[bool] = None,
+    user: User = Depends(get_current_user)
+):
+    """Liste les compétiteurs avec filtres"""
     query = {}
+    if competition_id:
+        if not await user_can_access_competition(user, competition_id):
+            raise HTTPException(status_code=403, detail="Accès non autorisé")
+        query["competition_id"] = competition_id
     if categorie_id:
         query["categorie_id"] = categorie_id
     if club:
         query["club"] = club
+    if pese is not None:
+        query["pese"] = pese
     
     competiteurs = await db.competiteurs.find(query, {"_id": 0}).to_list(1000)
     return competiteurs
 
-@api_router.get("/competiteurs/{competiteur_id}", response_model=Competiteur)
+@api_router.get("/competiteurs/{competiteur_id}")
 async def get_competiteur(competiteur_id: str, user: User = Depends(get_current_user)):
     comp = await db.competiteurs.find_one({"competiteur_id": competiteur_id}, {"_id": 0})
     if not comp:
         raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
     return comp
 
-@api_router.post("/competiteurs", response_model=Competiteur)
+@api_router.post("/competiteurs")
 async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_current_user)):
-    comp = Competiteur(**data.model_dump())
+    """Crée un compétiteur (coach doit être autorisé sur la compétition)"""
+    if not await user_can_access_competition(user, data.competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette compétition")
+    
+    # Vérifier que la compétition est active
+    competition = await db.competitions.find_one({"competition_id": data.competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    if competition.get("statut") != "active" and user.role != "admin":
+        raise HTTPException(status_code=400, detail="La compétition n'est plus active")
+    
+    comp = Competiteur(**data.model_dump(), created_by=user.user_id)
     comp_dict = comp.model_dump()
     comp_dict["created_at"] = comp_dict["created_at"].isoformat()
     
