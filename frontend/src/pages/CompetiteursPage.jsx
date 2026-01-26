@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import { useAuth } from "../App";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -22,12 +22,14 @@ const initialForm = {
   prenom: "",
   date_naissance: "",
   sexe: "M",
-  poids: "",
+  poids_declare: "",
   club: ""
 };
 
 export default function CompetiteursPage() {
   const { isAdmin } = useAuth();
+  const [competitions, setCompetitions] = useState([]);
+  const [selectedCompetition, setSelectedCompetition] = useState("");
   const [competiteurs, setCompetiteurs] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,31 +38,56 @@ export default function CompetiteursPage() {
   const [form, setForm] = useState(initialForm);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategorie, setFilterCategorie] = useState("all");
-  const [filterClub, setFilterClub] = useState("");
 
   useEffect(() => {
-    fetchData();
+    fetchCompetitions();
   }, []);
+
+  useEffect(() => {
+    if (selectedCompetition) {
+      fetchData();
+    }
+  }, [selectedCompetition]);
+
+  const fetchCompetitions = async () => {
+    try {
+      const response = await axios.get(`${API}/competitions`, { withCredentials: true });
+      setCompetitions(response.data);
+      
+      const saved = localStorage.getItem('selectedCompetition');
+      if (saved && response.data.find(c => c.competition_id === saved)) {
+        setSelectedCompetition(saved);
+      } else if (response.data.length > 0) {
+        setSelectedCompetition(response.data[0].competition_id);
+      }
+    } catch (error) {
+      toast.error("Erreur lors du chargement des compétitions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
       const [compRes, catRes] = await Promise.all([
-        axios.get(`${API}/competiteurs`, { withCredentials: true }),
-        axios.get(`${API}/categories`, { withCredentials: true })
+        axios.get(`${API}/competiteurs?competition_id=${selectedCompetition}`, { withCredentials: true }),
+        axios.get(`${API}/categories?competition_id=${selectedCompetition}`, { withCredentials: true })
       ]);
       setCompetiteurs(compRes.data);
       setCategories(catRes.data);
     } catch (error) {
       toast.error("Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...form, poids: parseFloat(form.poids) };
+      const payload = { 
+        ...form, 
+        poids_declare: parseFloat(form.poids_declare),
+        competition_id: selectedCompetition
+      };
       
       if (editingId) {
         await axios.put(`${API}/competiteurs/${editingId}`, payload, { withCredentials: true });
@@ -85,7 +112,7 @@ export default function CompetiteursPage() {
       prenom: comp.prenom,
       date_naissance: comp.date_naissance,
       sexe: comp.sexe,
-      poids: comp.poids.toString(),
+      poids_declare: comp.poids_declare?.toString() || "",
       club: comp.club
     });
     setEditingId(comp.competiteur_id);
@@ -115,11 +142,8 @@ export default function CompetiteursPage() {
       comp.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
       comp.club.toLowerCase().includes(searchTerm.toLowerCase());
     const matchCategorie = filterCategorie === "all" || comp.categorie_id === filterCategorie;
-    const matchClub = !filterClub || comp.club.toLowerCase().includes(filterClub.toLowerCase());
-    return matchSearch && matchCategorie && matchClub;
+    return matchSearch && matchCategorie;
   });
-
-  const clubs = [...new Set(competiteurs.map(c => c.club))];
 
   if (loading) {
     return (
@@ -155,7 +179,7 @@ export default function CompetiteursPage() {
             }
           }}>
             <DialogTrigger asChild>
-              <Button className="font-semibold uppercase tracking-wide" data-testid="add-competiteur-btn">
+              <Button className="font-semibold uppercase tracking-wide" data-testid="add-competiteur-btn" disabled={!selectedCompetition}>
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter
               </Button>
@@ -214,13 +238,13 @@ export default function CompetiteursPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="poids">Poids (kg)</Label>
+                    <Label htmlFor="poids_declare">Poids déclaré (kg)</Label>
                     <Input
-                      id="poids"
+                      id="poids_declare"
                       type="number"
                       step="0.1"
-                      value={form.poids}
-                      onChange={(e) => setForm({ ...form, poids: e.target.value })}
+                      value={form.poids_declare}
+                      onChange={(e) => setForm({ ...form, poids_declare: e.target.value })}
                       required
                       data-testid="competiteur-poids-input"
                     />
@@ -247,6 +271,38 @@ export default function CompetiteursPage() {
               </form>
             </DialogContent>
           </Dialog>
+        </motion.div>
+
+        {/* Sélection compétition */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <Card className="border-slate-200">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 max-w-md">
+                  <Label className="text-xs text-slate-500 mb-1 block">Compétition</Label>
+                  <Select value={selectedCompetition} onValueChange={(val) => {
+                    setSelectedCompetition(val);
+                    localStorage.setItem('selectedCompetition', val);
+                  }}>
+                    <SelectTrigger data-testid="select-competition">
+                      <SelectValue placeholder="Sélectionner une compétition" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {competitions.map(comp => (
+                        <SelectItem key={comp.competition_id} value={comp.competition_id}>
+                          {comp.nom} - {new Date(comp.date).toLocaleDateString('fr-FR')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Filters */}
@@ -308,7 +364,8 @@ export default function CompetiteursPage() {
                         <TableHead>Nom</TableHead>
                         <TableHead>Club</TableHead>
                         <TableHead>Sexe</TableHead>
-                        <TableHead>Poids</TableHead>
+                        <TableHead>Poids déclaré</TableHead>
+                        <TableHead>Poids officiel</TableHead>
                         <TableHead>Catégorie</TableHead>
                         <TableHead>Statut</TableHead>
                         {isAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -323,10 +380,17 @@ export default function CompetiteursPage() {
                           <TableCell>{comp.club}</TableCell>
                           <TableCell>
                             <Badge variant={comp.sexe === "M" ? "default" : "secondary"}>
-                              {comp.sexe === "M" ? "Masculin" : "Féminin"}
+                              {comp.sexe === "M" ? "M" : "F"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="score-display">{comp.poids} kg</TableCell>
+                          <TableCell className="score-display">{comp.poids_declare} kg</TableCell>
+                          <TableCell className="score-display font-bold">
+                            {comp.poids_officiel ? (
+                              <span className="text-green-600">{comp.poids_officiel} kg</span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline">
                               {getCategorieNom(comp.categorie_id)}
@@ -338,9 +402,13 @@ export default function CompetiteursPage() {
                                 <AlertTriangle className="h-3 w-3" />
                                 Disqualifié
                               </Badge>
-                            ) : (
+                            ) : comp.pese ? (
                               <Badge variant="secondary" className="bg-green-100 text-green-700">
-                                Actif
+                                Pesé
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                                À peser
                               </Badge>
                             )}
                           </TableCell>
