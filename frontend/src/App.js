@@ -6,6 +6,7 @@ import { Toaster } from "./components/ui/sonner";
 // Pages
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
+import CompetitionsPage from "./pages/CompetitionsPage";
 import CompetiteursPage from "./pages/CompetiteursPage";
 import CategoriesPage from "./pages/CategoriesPage";
 import CombatsPage from "./pages/CombatsPage";
@@ -15,6 +16,7 @@ import UsersPage from "./pages/UsersPage";
 import HistoriquePage from "./pages/HistoriquePage";
 import CombatsSuivrePage from "./pages/CombatsSuivrePage";
 import ArbreCombatsPage from "./pages/ArbreCombatsPage";
+import PeseePage from "./pages/PeseePage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
