@@ -849,14 +849,17 @@ async def get_arbre_combats(categorie_id: str, user: User = Depends(get_current_
         "combats_termines": len([c for c in combats if c.get("termine")])
     }
 
-@api_router.get("/combats", response_model=List[Combat])
+@api_router.get("/combats")
 async def list_combats(
+    competition_id: Optional[str] = None,
     categorie_id: Optional[str] = None,
     tatami_id: Optional[str] = None,
     tour: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     query = {}
+    if competition_id:
+        query["competition_id"] = competition_id
     if categorie_id:
         query["categorie_id"] = categorie_id
     if tatami_id:
@@ -867,7 +870,7 @@ async def list_combats(
     combats = await db.combats.find(query, {"_id": 0}).to_list(1000)
     return combats
 
-@api_router.get("/combats/{combat_id}", response_model=Combat)
+@api_router.get("/combats/{combat_id}")
 async def get_combat(combat_id: str, user: User = Depends(get_current_user)):
     combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
     if not combat:
@@ -877,11 +880,18 @@ async def get_combat(combat_id: str, user: User = Depends(get_current_user)):
 @api_router.post("/combats/generer/{categorie_id}")
 async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, user: User = Depends(require_admin)):
     """Génère l'arbre des combats pour une catégorie"""
+    # Récupérer la catégorie pour obtenir le competition_id
+    categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
+    if not categorie:
+        raise HTTPException(status_code=404, detail="Catégorie non trouvée")
+    
+    competition_id = categorie.get("competition_id")
+    
     # Supprimer les anciens combats de cette catégorie
     await db.combats.delete_many({"categorie_id": categorie_id})
     await db.medailles.delete_many({"categorie_id": categorie_id})
     
-    # Récupérer les compétiteurs de la catégorie
+    # Récupérer les compétiteurs de la catégorie (uniquement ceux pesés pour une compétition officielle)
     competiteurs = await db.competiteurs.find(
         {"categorie_id": categorie_id, "disqualifie": False},
         {"_id": 0}
@@ -908,6 +918,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     if n == 2:
         # Finale directe
         combat = Combat(
+            competition_id=competition_id,
             categorie_id=categorie_id,
             tatami_id=tatami_id,
             tour="finale",
