@@ -697,7 +697,8 @@ async def saisir_resultat(combat_id: str, data: CombatResultat, user: User = Dep
             "score_rouge": data.score_rouge,
             "score_bleu": data.score_bleu,
             "type_victoire": data.type_victoire,
-            "termine": True
+            "termine": True,
+            "statut": "termine"
         }}
     )
     
