@@ -1,0 +1,120 @@
+{
+  "identity": {
+    "name": "E1 - The Anti-AI Designer",
+    "mission": "Create a professional, charismatic, and high-performance Taekwondo competition management system. Avoid generic SaaS looks; aim for 'Athletic Precision'.",
+    "tone": "Professional, Disciplined, Energetic, Clear",
+    "theme": "Light Mode (Professional & Charismatic)"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Chivo, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "google_fonts_import": "https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+    "rules": {
+      "headings": "Uppercase for top-level headers (H1, H2). Tracking tight (-0.02em). Weight: 700 or 900.",
+      "body": "High legibility. Leading relaxed (1.6). Weight: 400 or 500.",
+      "data": "Use tabular nums for scores and timers."
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": "#0F172A",
+      "secondary": "#FFFFFF",
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "border": "#E2E8F0",
+      "text_primary": "#0F172A",
+      "text_secondary": "#64748B"
+    },
+    "accents": {
+      "hong": "#EF4444",
+      "chung": "#3B82F6",
+      "gold": "#EAB308",
+      "silver": "#94A3B8",
+      "bronze": "#B45309",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444"
+    },
+    "gradients": {
+      "hong_gradient": "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+      "chung_gradient": "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
+      "gold_gradient": "linear-gradient(135deg, #FACC15 0%, #EAB308 100%)"
+    }
+  },
+  "layout": {
+    "spacing_scale": "p-1, p-2, p-4, p-6, p-8, p-12, p-16, p-24, p-32",
+    "container": {
+      "max_width": "max-w-7xl",
+      "padding": "px-4 md:px-8"
+    },
+    "grid_system": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-12 gap-6",
+      "card_grid": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+    },
+    "border_radius": {
+      "default": "rounded-lg",
+      "card": "rounded-xl",
+      "button": "rounded-md"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 text-white hover:bg-slate-800 shadow-sm font-semibold tracking-wide uppercase text-sm px-6 py-2.5 transition-all active:scale-95",
+      "secondary": "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 font-medium text-sm px-6 py-2.5 transition-all",
+      "hong": "bg-red-500 text-white hover:bg-red-600 shadow-md font-bold uppercase tracking-wider",
+      "chung": "bg-blue-500 text-white hover:bg-blue-600 shadow-md font-bold uppercase tracking-wider"
+    },
+    "cards": {
+      "style": "bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200",
+      "header": "border-b border-slate-100 p-6",
+      "content": "p-6"
+    },
+    "inputs": {
+      "style": "bg-white border border-slate-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 rounded-md h-10 px-3 text-sm transition-colors"
+    },
+    "tables": {
+      "header": "bg-slate-50 text-slate-500 uppercase text-xs font-bold tracking-wider border-b border-slate-200",
+      "row": "hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+      "sharp": "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+    },
+    "textures": {
+      "noise": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")"
+    },
+    "glassmorphism": "bg-white/80 backdrop-blur-md border border-white/20 shadow-lg"
+  },
+  "assets": {
+    "icons": "lucide-react",
+    "images": {
+      "hero_bg": "https://images.unsplash.com/photo-1767971162450-9477017b2cb1?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "referee": "https://images.unsplash.com/photo-1656653121931-fb0c1a239c09?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "medals": "https://images.pexels.com/photos/7267538/pexels-photo-7267538.jpeg",
+      "placeholder_avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed="
+    }
+  },
+  "instructions_to_main_agent": [
+    "1. SETUP: Install 'lucide-react', 'recharts', 'framer-motion', 'clsx', 'tailwind-merge' if not present.",
+    "2. FONTS: Add the Google Fonts import to 'index.css' immediately.",
+    "3. THEME: Enforce the Light Mode palette. Do not use dark mode by default.",
+    "4. LAYOUT: Use the 'Bento' grid for the main dashboard. Create a 'Sidebar' layout for the admin panel.",
+    "5. COMPONENTS: Build a 'Bracket' component using CSS Grid or Flexbox (do not use canvas unless necessary).",
+    "6. SCOREBOARD: Create a high-contrast 'Scoreboard' view for the 'Combats par tatami' page. Use massive font sizes for scores.",
+    "7. ACCESSIBILITY: Ensure all text has sufficient contrast (Slate 500+ on White). Use 'data-testid' for all interactive elements.",
+    "8. ANIMATION: Use 'framer-motion' for page transitions and list entrance animations. Keep it subtle (0.2s - 0.3s).",
+    "9. LANGUAGE: Ensure all UI text is in French as requested."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Avoid 'AI Slop': No generic gradients, no centered text everywhere.",
+    "Use 'sonner' for toasts.",
+    "Use 'shadcn/ui' logic but apply the custom styles defined in 'components'.",
+    "Create depth with layered shadows and borders, not just flat colors.",
+    "Micro-interactions: Add hover states to EVERYTHING clickable."
+  ]
+}
