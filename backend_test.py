@@ -267,20 +267,23 @@ class TaekwondoAPITester:
 
     def test_protected_routes_without_auth(self):
         """Test that protected routes require authentication"""
-        # Temporarily remove token
-        temp_token = self.session_token
-        self.session_token = None
+        # Create a new session without cookies
+        temp_session = requests.Session()
         
-        success, response = self.make_request('GET', 'competiteurs', None, 401)
+        url = f"{self.api_url}/competiteurs"
+        headers = {'Content-Type': 'application/json'}
         
-        # Restore token
-        self.session_token = temp_token
+        try:
+            response = temp_session.get(url, headers=headers, timeout=10)
+            success = response.status_code == 401
+        except:
+            success = False
         
         if success:
             self.log_test("Protected Routes (No Auth)", True, "Correctly returned 401")
             return True
         else:
-            self.log_test("Protected Routes (No Auth)", False, f"Should return 401: {response}", response)
+            self.log_test("Protected Routes (No Auth)", False, f"Should return 401, got {response.status_code}")
             return False
 
     def run_full_test_suite(self):
