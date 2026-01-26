@@ -1,28 +1,26 @@
 {
-  "timestamp": "2026-01-26T18:47:23.389305",
-  "total_tests": 9,
-  "passed_tests": 3,
-  "success_rate": 33.33333333333333,
+  "timestamp": "2026-01-26T18:47:57.326157",
+  "total_tests": 12,
+  "passed_tests": 11,
+  "success_rate": 91.66666666666666,
   "test_details": [
     {
       "name": "Auth Register (Admin)",
       "success": true,
-      "details": "Created user: admin1769453242@test.com",
+      "details": "Created user: admin1769453276@test.com",
       "response_data": null
     },
     {
       "name": "Auth Login",
       "success": true,
-      "details": "Logged in as: admin1769453242@test.com",
+      "details": "Logged in as: admin1769453276@test.com",
       "response_data": null
     },
     {
       "name": "Auth Me",
-      "success": false,
-      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
-      "response_data": {
-        "detail": "Non authentifi\u00e9"
-      }
+      "success": true,
+      "details": "User: Admin Test 1769453276",
+      "response_data": null
     },
     {
       "name": "Protected Routes (No Auth)",
@@ -32,52 +30,72 @@
     },
     {
       "name": "Create Category",
-      "success": false,
-      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
-      "response_data": {
-        "detail": "Non authentifi\u00e9"
-      }
+      "success": true,
+      "details": "Created: Cadets -55kg Masculin",
+      "response_data": null
     },
     {
       "name": "List Categories",
-      "success": false,
-      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
-      "response_data": {
-        "detail": "Non authentifi\u00e9"
-      }
+      "success": true,
+      "details": "Found 1 categories",
+      "response_data": null
+    },
+    {
+      "name": "Create Multiple Competiteurs",
+      "success": true,
+      "details": "Created 4/4 competitors",
+      "response_data": null
     },
     {
       "name": "List Competiteurs",
-      "success": false,
-      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
-      "response_data": {
-        "detail": "Non authentifi\u00e9"
-      }
+      "success": true,
+      "details": "Found 4 competitors",
+      "response_data": null
     },
     {
       "name": "Create Tatami",
+      "success": true,
+      "details": "Created: Tatami Central",
+      "response_data": null
+    },
+    {
+      "name": "Generate Bracket",
       "success": false,
-      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "details": "Failed: {'status_code': 520, 'text': 'Internal Server Error'}",
       "response_data": {
-        "detail": "Non authentifi\u00e9"
+        "status_code": 520,
+        "text": "Internal Server Error"
       }
     },
     {
+      "name": "List Combats",
+      "success": true,
+      "details": "Found 4 combats",
+      "response_data": null
+    },
+    {
       "name": "Get Stats",
-      "success": false,
-      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
-      "response_data": {
-        "detail": "Non authentifi\u00e9"
-      }
+      "success": true,
+      "details": "Stats: {'competiteurs': 4, 'categories': 1, 'combats_total': 4, 'combats_termines': 0, 'medailles': 0, 'tatamis': 1}",
+      "response_data": null
     }
   ],
   "created_test_data": {
     "users": [
-      "user_cdd5c95787f5"
+      "user_5e89d2834ebf"
     ],
-    "categories": [],
-    "competiteurs": [],
-    "tatamis": [],
+    "categories": [
+      "cat_fa1f1dbbcd93"
+    ],
+    "competiteurs": [
+      "comp_9effa335fb05",
+      "comp_6cf7551221c2",
+      "comp_32e317e2b6be",
+      "comp_220124905fd0"
+    ],
+    "tatamis": [
+      "tat_2756d9c2bc6c"
+    ],
     "combats": []
   }
 }
