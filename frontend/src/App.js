@@ -13,6 +13,8 @@ import ResultatsPage from "./pages/ResultatsPage";
 import TatamisPage from "./pages/TatamisPage";
 import UsersPage from "./pages/UsersPage";
 import HistoriquePage from "./pages/HistoriquePage";
+import CombatsSuivrePage from "./pages/CombatsSuivrePage";
+import ArbreCombatsPage from "./pages/ArbreCombatsPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
