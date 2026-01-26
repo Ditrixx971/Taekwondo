@@ -533,9 +533,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             rouge_id=competiteurs[0]["competiteur_id"],
             bleu_id=competiteurs[1]["competiteur_id"]
         )
-        demi_dict = demi.model_dump()
-        demi_dict["created_at"] = demi_dict["created_at"].isoformat()
-        await db.combats.insert_one(demi_dict)
+        demi_dict = await insert_combat(demi)
         combats_created.append(demi_dict)
         
         # Finale (vainqueur demi vs 3ème)
@@ -547,9 +545,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             rouge_id=None,  # Sera rempli après la demi
             bleu_id=competiteurs[2]["competiteur_id"]
         )
-        finale_dict = finale.model_dump()
-        finale_dict["created_at"] = finale_dict["created_at"].isoformat()
-        await db.combats.insert_one(finale_dict)
+        finale_dict = await insert_combat(finale)
         combats_created.append(finale_dict)
         
     elif n == 4:
@@ -563,9 +559,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 rouge_id=competiteurs[i*2]["competiteur_id"],
                 bleu_id=competiteurs[i*2 + 1]["competiteur_id"]
             )
-            demi_dict = demi.model_dump()
-            demi_dict["created_at"] = demi_dict["created_at"].isoformat()
-            await db.combats.insert_one(demi_dict)
+            demi_dict = await insert_combat(demi)
             combats_created.append(demi_dict)
         
         # Finale
@@ -577,9 +571,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             rouge_id=None,
             bleu_id=None
         )
-        finale_dict = finale.model_dump()
-        finale_dict["created_at"] = finale_dict["created_at"].isoformat()
-        await db.combats.insert_one(finale_dict)
+        finale_dict = await insert_combat(finale)
         combats_created.append(finale_dict)
         
         # Match bronze
@@ -591,9 +583,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             rouge_id=None,
             bleu_id=None
         )
-        bronze_dict = bronze.model_dump()
-        bronze_dict["created_at"] = bronze_dict["created_at"].isoformat()
-        await db.combats.insert_one(bronze_dict)
+        bronze_dict = await insert_combat(bronze)
         combats_created.append(bronze_dict)
         
     else:
@@ -611,9 +601,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 rouge_id=competiteurs[i*2]["competiteur_id"] if i*2 < len(competiteurs) else None,
                 bleu_id=competiteurs[i*2 + 1]["competiteur_id"] if i*2 + 1 < len(competiteurs) else None
             )
-            quart_dict = quart.model_dump()
-            quart_dict["created_at"] = quart_dict["created_at"].isoformat()
-            await db.combats.insert_one(quart_dict)
+            quart_dict = await insert_combat(quart)
             combats_created.append(quart_dict)
         
         # Demi-finales
