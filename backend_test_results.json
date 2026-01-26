@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-01-26T18:47:23.389305",
+  "total_tests": 9,
+  "passed_tests": 3,
+  "success_rate": 33.33333333333333,
+  "test_details": [
+    {
+      "name": "Auth Register (Admin)",
+      "success": true,
+      "details": "Created user: admin1769453242@test.com",
+      "response_data": null
+    },
+    {
+      "name": "Auth Login",
+      "success": true,
+      "details": "Logged in as: admin1769453242@test.com",
+      "response_data": null
+    },
+    {
+      "name": "Auth Me",
+      "success": false,
+      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "response_data": {
+        "detail": "Non authentifi\u00e9"
+      }
+    },
+    {
+      "name": "Protected Routes (No Auth)",
+      "success": true,
+      "details": "Correctly returned 401",
+      "response_data": null
+    },
+    {
+      "name": "Create Category",
+      "success": false,
+      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "response_data": {
+        "detail": "Non authentifi\u00e9"
+      }
+    },
+    {
+      "name": "List Categories",
+      "success": false,
+      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "response_data": {
+        "detail": "Non authentifi\u00e9"
+      }
+    },
+    {
+      "name": "List Competiteurs",
+      "success": false,
+      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "response_data": {
+        "detail": "Non authentifi\u00e9"
+      }
+    },
+    {
+      "name": "Create Tatami",
+      "success": false,
+      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "response_data": {
+        "detail": "Non authentifi\u00e9"
+      }
+    },
+    {
+      "name": "Get Stats",
+      "success": false,
+      "details": "Failed: {'detail': 'Non authentifi\u00e9'}",
+      "response_data": {
+        "detail": "Non authentifi\u00e9"
+      }
+    }
+  ],
+  "created_test_data": {
+    "users": [
+      "user_cdd5c95787f5"
+    ],
+    "categories": [],
+    "competiteurs": [],
+    "tatamis": [],
+    "combats": []
+  }
+}
