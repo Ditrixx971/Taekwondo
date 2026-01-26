@@ -500,6 +500,15 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     combats_created = []
     n = len(competiteurs)
     
+    async def insert_combat(combat_obj):
+        """Helper to insert combat and return clean dict without _id"""
+        combat_dict = combat_obj.model_dump()
+        combat_dict["created_at"] = combat_dict["created_at"].isoformat()
+        await db.combats.insert_one(combat_dict)
+        # Remove _id added by MongoDB before returning
+        combat_dict.pop("_id", None)
+        return combat_dict
+    
     if n == 2:
         # Finale directe
         combat = Combat(
@@ -510,9 +519,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             rouge_id=competiteurs[0]["competiteur_id"],
             bleu_id=competiteurs[1]["competiteur_id"]
         )
-        combat_dict = combat.model_dump()
-        combat_dict["created_at"] = combat_dict["created_at"].isoformat()
-        await db.combats.insert_one(combat_dict)
+        combat_dict = await insert_combat(combat)
         combats_created.append(combat_dict)
         
     elif n == 3:
