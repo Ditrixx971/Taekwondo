@@ -753,6 +753,7 @@ async def delete_tatami(tatami_id: str, user: User = Depends(require_admin)):
 
 @api_router.get("/combats/suivre")
 async def combats_a_suivre(
+    competition_id: Optional[str] = None,
     categorie_id: Optional[str] = None,
     tatami_id: Optional[str] = None,
     tour: Optional[str] = None,
@@ -762,6 +763,8 @@ async def combats_a_suivre(
     """Récupère les combats à suivre avec filtres"""
     query = {"statut": {"$ne": "termine"}} if not statut else {}
     
+    if competition_id:
+        query["competition_id"] = competition_id
     if categorie_id:
         query["categorie_id"] = categorie_id
     if tatami_id:
