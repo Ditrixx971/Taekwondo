@@ -45,26 +45,59 @@ class User(BaseModel):
     role: str
     picture: Optional[str] = None
 
+# ============ COMPETITION MODELS ============
+
+class Competition(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    competition_id: str = Field(default_factory=lambda: f"comp_{uuid.uuid4().hex[:12]}")
+    nom: str
+    date: str  # YYYY-MM-DD
+    lieu: str
+    heure_debut: str = "09:00"
+    duree_estimee_heures: int = 8
+    statut: str = "active"  # active, terminee, annulee
+    coaches_autorises: List[str] = []  # Liste des user_id des coachs autorisés
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = ""
+
+class CompetitionCreate(BaseModel):
+    nom: str
+    date: str
+    lieu: str
+    heure_debut: str = "09:00"
+    duree_estimee_heures: int = 8
+    coaches_autorises: List[str] = []
+
+# ============ COMPETITEUR MODELS ============
+
 class Competiteur(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    competiteur_id: str = Field(default_factory=lambda: f"comp_{uuid.uuid4().hex[:12]}")
+    competiteur_id: str = Field(default_factory=lambda: f"cptr_{uuid.uuid4().hex[:12]}")
+    competition_id: str  # Lié à une compétition
     nom: str
     prenom: str
     date_naissance: str
     sexe: str  # M or F
-    poids: float
+    poids_declare: float  # Poids déclaré par le coach à l'inscription
+    poids_officiel: Optional[float] = None  # Poids officiel après pesée
     club: str
     categorie_id: Optional[str] = None
+    pese: bool = False  # Statut de pesée
     disqualifie: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = ""
 
 class CompetiteurCreate(BaseModel):
+    competition_id: str
     nom: str
     prenom: str
     date_naissance: str
     sexe: str
-    poids: float
+    poids_declare: float
     club: str
+
+class PeseeUpdate(BaseModel):
+    poids_officiel: float
 
 class Categorie(BaseModel):
     model_config = ConfigDict(extra="ignore")
