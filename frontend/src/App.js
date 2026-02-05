@@ -196,6 +196,8 @@ function AppRouter() {
       <Route path="/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
       <Route path="/aires-combat" element={<ProtectedRoute><AiresCombatPage /></ProtectedRoute>} />
       <Route path="/gestion-combats" element={<ProtectedRoute><GestionCombatsPage /></ProtectedRoute>} />
+      <Route path="/arbre-combat" element={<ProtectedRoute><ArbreCombatPage /></ProtectedRoute>} />
+      <Route path="/ordre-combats" element={<ProtectedRoute><OrdreCombatsPage /></ProtectedRoute>} />
       <Route path="/arbitre/:aireId" element={<ProtectedRoute><ArbitrePage /></ProtectedRoute>} />
       <Route path="/resultats" element={<ProtectedRoute><ResultatsPage /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
