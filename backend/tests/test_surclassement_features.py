@@ -278,13 +278,13 @@ class TestCompetiteurCreationWithSurclassement:
         )
         surclass_categories = surclass_response.json()
         
-        # Find a Cadets category (age 12-13) for surclassement
-        cadets_cat = next((c for c in surclass_categories if "Cadets" in c["nom"] and 35 <= c["poids_max"]), None)
-        assert cadets_cat is not None, "Should find a Cadets category for surclassement"
+        # Find a Cadets category (age 12-13) for surclassement that includes 38kg
+        cadets_cat = next((c for c in surclass_categories if "Cadets" in c["nom"] and c["poids_min"] <= 38 <= c["poids_max"]), None)
+        assert cadets_cat is not None, "Should find a Cadets category for surclassement with 38kg"
         
         response = session.post(f"{BASE_URL}/api/competiteurs", json={
             "competition_id": COMPETITION_ID,
-            "nom": "TEST_Surclasse",
+            "nom": "TEST_Surclasse2",
             "prenom": "Marc",
             "date_naissance": "2015-08-20",  # ~10 years old
             "sexe": "M",
@@ -294,7 +294,7 @@ class TestCompetiteurCreationWithSurclassement:
             "categorie_surclasse_id": cadets_cat["categorie_id"]
         })
         
-        assert response.status_code == 200
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         
         # Should be marked as surclassé with the chosen category
