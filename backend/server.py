@@ -913,7 +913,125 @@ async def get_categories_for_surclassement(
     
     return categories
 
-# ============ TATAMIS ENDPOINTS ============
+# ============ AIRES DE COMBAT ENDPOINTS ============
+
+@api_router.get("/aires-combat")
+async def list_aires_combat(competition_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Liste les aires de combat d'une compétition"""
+    query = {}
+    if competition_id:
+        query["competition_id"] = competition_id
+    
+    aires = await db.aires_combat.find(query, {"_id": 0}).sort("numero", 1).to_list(100)
+    return aires
+
+@api_router.get("/aires-combat/{aire_id}")
+async def get_aire_combat(aire_id: str, user: User = Depends(get_current_user)):
+    """Récupère une aire de combat avec ses combats en cours"""
+    aire = await db.aires_combat.find_one({"aire_id": aire_id}, {"_id": 0})
+    if not aire:
+        raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
+    
+    # Récupérer le combat en cours sur cette aire
+    combat_en_cours = await db.combats.find_one(
+        {"aire_id": aire_id, "statut": "en_cours"},
+        {"_id": 0}
+    )
+    
+    # Récupérer les combats à venir sur cette aire
+    combats_a_venir = await db.combats.find(
+        {"aire_id": aire_id, "statut": "a_venir", "est_finale": False},
+        {"_id": 0}
+    ).sort("ordre", 1).to_list(20)
+    
+    aire["combat_en_cours"] = combat_en_cours
+    aire["combats_a_venir"] = combats_a_venir
+    
+    return aire
+
+@api_router.post("/aires-combat")
+async def create_aire_combat(data: AireCombatCreate, user: User = Depends(require_admin)):
+    """Crée une nouvelle aire de combat"""
+    aire = AireCombat(**data.model_dump())
+    aire_dict = aire.model_dump()
+    await db.aires_combat.insert_one(aire_dict)
+    aire_dict.pop("_id", None)
+    return aire_dict
+
+@api_router.delete("/aires-combat/{aire_id}")
+async def delete_aire_combat(aire_id: str, user: User = Depends(require_admin)):
+    """Supprime une aire de combat"""
+    result = await db.aires_combat.delete_one({"aire_id": aire_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
+    return {"message": "Aire de combat supprimée"}
+
+@api_router.post("/aires-combat/repartir/{competition_id}")
+async def repartir_combats_sur_aires(competition_id: str, user: User = Depends(require_admin)):
+    """
+    Répartit automatiquement les combats sur les aires de combat disponibles.
+    Les finales sont mises à la fin de la compétition.
+    """
+    # Récupérer les aires de combat
+    aires = await db.aires_combat.find(
+        {"competition_id": competition_id},
+        {"_id": 0}
+    ).sort("numero", 1).to_list(10)
+    
+    if not aires:
+        raise HTTPException(status_code=400, detail="Aucune aire de combat configurée")
+    
+    # Récupérer tous les combats non terminés
+    combats = await db.combats.find(
+        {"competition_id": competition_id, "termine": False},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    if not combats:
+        return {"message": "Aucun combat à répartir", "total": 0}
+    
+    # Séparer finales et autres combats
+    finales = [c for c in combats if c["tour"] in ["finale", "bronze"]]
+    autres = [c for c in combats if c["tour"] not in ["finale", "bronze"]]
+    
+    # Trier par catégorie puis par tour
+    tour_ordre = {"quart": 1, "demi": 2}
+    autres.sort(key=lambda x: (x["categorie_id"], tour_ordre.get(x["tour"], 0), x["position"]))
+    finales.sort(key=lambda x: (x["categorie_id"], 1 if x["tour"] == "bronze" else 2, x["position"]))
+    
+    # Répartir les combats (sauf finales) sur les aires
+    nb_aires = len(aires)
+    for i, combat in enumerate(autres):
+        aire = aires[i % nb_aires]
+        await db.combats.update_one(
+            {"combat_id": combat["combat_id"]},
+            {"$set": {
+                "aire_id": aire["aire_id"],
+                "ordre": i + 1,
+                "est_finale": False
+            }}
+        )
+    
+    # Les finales seront sur toutes les aires (rotation) à la fin
+    base_ordre = len(autres)
+    for i, combat in enumerate(finales):
+        aire = aires[i % nb_aires]
+        await db.combats.update_one(
+            {"combat_id": combat["combat_id"]},
+            {"$set": {
+                "aire_id": aire["aire_id"],
+                "ordre": base_ordre + i + 1,
+                "est_finale": True
+            }}
+        )
+    
+    return {
+        "message": f"{len(combats)} combats répartis sur {nb_aires} aire(s)",
+        "combats_reguliers": len(autres),
+        "finales": len(finales)
+    }
+
+# ============ TATAMIS ENDPOINTS (RETRO-COMPATIBILITE) ============
 
 @api_router.get("/tatamis")
 async def list_tatamis(competition_id: Optional[str] = None, user: User = Depends(get_current_user)):
