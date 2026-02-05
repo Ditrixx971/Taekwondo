@@ -300,8 +300,8 @@ export default function ArbreCombatPage() {
               <div className="text-center mb-8 print:hidden">
                 <h2 className="text-xl font-bold text-slate-900">{categorieNom}</h2>
                 <p className="text-slate-500 text-sm">
-                  {arbreData?.combats?.length || 0} combat(s) • 
-                  {arbreData?.combats?.filter(c => c.termine).length || 0} terminé(s)
+                  {arbreData?.total_combats || 0} combat(s) • 
+                  {arbreData?.combats_termines || 0} terminé(s)
                 </p>
               </div>
 
