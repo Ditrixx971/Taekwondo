@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
-import { useAuth } from "../App";
+import { useAuth, useCompetition } from "../App";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -31,8 +31,7 @@ const initialForm = {
 
 export default function CompetiteursPage() {
   const { isAdmin } = useAuth();
-  const [competitions, setCompetitions] = useState([]);
-  const [selectedCompetition, setSelectedCompetition] = useState("");
+  const { competition } = useCompetition();
   const [competiteurs, setCompetiteurs] = useState([]);
   const [categories, setCategories] = useState([]);
   const [categoriesSurclassement, setCategoriesSurclassement] = useState([]);
