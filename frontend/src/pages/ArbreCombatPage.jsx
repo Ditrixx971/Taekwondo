@@ -179,16 +179,16 @@ export default function ArbreCombatPage() {
     window.print();
   };
 
-  // Organiser les combats par tour
+  // Organiser les combats par tour - l'API retourne un objet {arbre: {quart, demi, finale, bronze}}
   const organizeByTour = useCallback(() => {
-    if (!arbreData?.combats) return { quarts: [], demis: [], finale: null, bronze: null };
+    if (!arbreData?.arbre) return { quarts: [], demis: [], finale: null, bronze: null };
     
-    const combats = arbreData.combats;
+    const arbre = arbreData.arbre;
     return {
-      quarts: combats.filter(c => c.tour === "quart").sort((a, b) => a.position - b.position),
-      demis: combats.filter(c => c.tour === "demi").sort((a, b) => a.position - b.position),
-      finale: combats.find(c => c.tour === "finale"),
-      bronze: combats.find(c => c.tour === "bronze")
+      quarts: arbre.quart || [],
+      demis: arbre.demi || [],
+      finale: arbre.finale?.[0] || null,
+      bronze: arbre.bronze?.[0] || null
     };
   }, [arbreData]);
 
