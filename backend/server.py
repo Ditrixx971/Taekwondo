@@ -1763,6 +1763,262 @@ async def list_users(admin: User = Depends(require_admin)):
     users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
     return users
 
+# ============ ARBITRE ENDPOINTS ============
+
+@api_router.get("/arbitre/aire/{aire_id}")
+async def get_arbitre_view(aire_id: str, user: User = Depends(get_current_user)):
+    """
+    Vue complète pour l'arbitre de table centrale d'une aire de combat.
+    Retourne le combat en cours, les combats à venir et les infos des compétiteurs.
+    """
+    aire = await db.aires_combat.find_one({"aire_id": aire_id}, {"_id": 0})
+    if not aire:
+        raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
+    
+    # Combat en cours
+    combat_en_cours = await db.combats.find_one(
+        {"aire_id": aire_id, "statut": "en_cours"},
+        {"_id": 0}
+    )
+    
+    # Enrichir avec les infos des compétiteurs
+    if combat_en_cours:
+        if combat_en_cours.get("rouge_id"):
+            rouge = await db.competiteurs.find_one(
+                {"competiteur_id": combat_en_cours["rouge_id"]},
+                {"_id": 0}
+            )
+            combat_en_cours["rouge"] = rouge
+        if combat_en_cours.get("bleu_id"):
+            bleu = await db.competiteurs.find_one(
+                {"competiteur_id": combat_en_cours["bleu_id"]},
+                {"_id": 0}
+            )
+            combat_en_cours["bleu"] = bleu
+        # Catégorie
+        categorie = await db.categories.find_one(
+            {"categorie_id": combat_en_cours["categorie_id"]},
+            {"_id": 0}
+        )
+        combat_en_cours["categorie"] = categorie
+    
+    # Combats à venir sur cette aire (non-finales d'abord)
+    combats_a_venir = await db.combats.find(
+        {"aire_id": aire_id, "statut": "a_venir"},
+        {"_id": 0}
+    ).sort([("est_finale", 1), ("ordre", 1)]).to_list(20)
+    
+    # Enrichir chaque combat à venir
+    for combat in combats_a_venir:
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one(
+                {"competiteur_id": combat["rouge_id"]},
+                {"_id": 0, "competiteur_id": 1, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["rouge"] = rouge
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one(
+                {"competiteur_id": combat["bleu_id"]},
+                {"_id": 0, "competiteur_id": 1, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["bleu"] = bleu
+        categorie = await db.categories.find_one(
+            {"categorie_id": combat["categorie_id"]},
+            {"_id": 0, "nom": 1}
+        )
+        combat["categorie"] = categorie
+    
+    # Finales en attente (toutes les aires confondues pour info)
+    finales_restantes = await db.combats.count_documents({
+        "competition_id": aire["competition_id"],
+        "est_finale": True,
+        "termine": False
+    })
+    
+    return {
+        "aire": aire,
+        "combat_en_cours": combat_en_cours,
+        "combats_a_venir": combats_a_venir,
+        "finales_restantes": finales_restantes
+    }
+
+@api_router.post("/arbitre/lancer/{combat_id}")
+async def lancer_combat(combat_id: str, user: User = Depends(get_current_user)):
+    """Lance un combat (le passe en statut 'en_cours')"""
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    if combat["statut"] != "a_venir":
+        raise HTTPException(status_code=400, detail="Ce combat ne peut pas être lancé")
+    
+    # Vérifier que les deux combattants sont présents
+    if not combat.get("rouge_id") or not combat.get("bleu_id"):
+        raise HTTPException(status_code=400, detail="Les deux combattants doivent être définis")
+    
+    # Passer le combat en cours
+    await db.combats.update_one(
+        {"combat_id": combat_id},
+        {"$set": {"statut": "en_cours"}}
+    )
+    
+    updated = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    return updated
+
+@api_router.post("/arbitre/resultat/{combat_id}")
+async def saisir_resultat_rapide(
+    combat_id: str, 
+    vainqueur: str,  # "rouge" ou "bleu"
+    score_rouge: int = 0,
+    score_bleu: int = 0,
+    type_victoire: str = "normal",
+    user: User = Depends(get_current_user)
+):
+    """
+    Saisie rapide du résultat par l'arbitre.
+    Le perdant est automatiquement marqué comme éliminé.
+    """
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    if combat["statut"] != "en_cours":
+        raise HTTPException(status_code=400, detail="Ce combat n'est pas en cours")
+    
+    # Déterminer le vainqueur
+    if vainqueur == "rouge":
+        vainqueur_id = combat["rouge_id"]
+        perdant_id = combat["bleu_id"]
+    elif vainqueur == "bleu":
+        vainqueur_id = combat["bleu_id"]
+        perdant_id = combat["rouge_id"]
+    else:
+        raise HTTPException(status_code=400, detail="Le vainqueur doit être 'rouge' ou 'bleu'")
+    
+    # En Taekwondo, le perdant est éliminé (ne peut plus combattre)
+    # Sauf s'il y a un match pour le bronze
+    if perdant_id:
+        # Vérifier si ce n'est pas une demi-finale (où le perdant peut aller au bronze)
+        is_demi = combat["tour"] == "demi"
+        if not is_demi:
+            # Marquer comme éliminé définitivement
+            await db.competiteurs.update_one(
+                {"competiteur_id": perdant_id},
+                {"$set": {"elimine": True}}
+            )
+    
+    # Mettre à jour le combat
+    await db.combats.update_one(
+        {"combat_id": combat_id},
+        {"$set": {
+            "vainqueur_id": vainqueur_id,
+            "score_rouge": score_rouge,
+            "score_bleu": score_bleu,
+            "type_victoire": type_victoire,
+            "termine": True,
+            "statut": "termine"
+        }}
+    )
+    
+    # Propager le vainqueur au tour suivant
+    await propager_vainqueur(combat, vainqueur_id)
+    
+    # Propager le perdant au match bronze si c'est une demi-finale
+    if combat["tour"] == "demi" and perdant_id:
+        bronze_match = await db.combats.find_one({
+            "categorie_id": combat["categorie_id"],
+            "tour": "bronze"
+        }, {"_id": 0})
+        
+        if bronze_match:
+            # Déterminer quelle position (rouge ou bleu) selon la position de la demi
+            update_field = "rouge_id" if combat["position"] == 1 else "bleu_id"
+            await db.combats.update_one(
+                {"combat_id": bronze_match["combat_id"]},
+                {"$set": {update_field: perdant_id}}
+            )
+    
+    updated = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    return updated
+
+@api_router.get("/arbitre/prochain/{aire_id}")
+async def get_prochain_combat(aire_id: str, user: User = Depends(get_current_user)):
+    """Récupère le prochain combat à lancer sur une aire"""
+    # D'abord les combats non-finales
+    combat = await db.combats.find_one(
+        {"aire_id": aire_id, "statut": "a_venir", "est_finale": False},
+        {"_id": 0},
+        sort=[("ordre", 1)]
+    )
+    
+    # Si pas de combat régulier, chercher les finales
+    if not combat:
+        combat = await db.combats.find_one(
+            {"aire_id": aire_id, "statut": "a_venir", "est_finale": True},
+            {"_id": 0},
+            sort=[("ordre", 1)]
+        )
+    
+    if not combat:
+        return None
+    
+    # Enrichir avec les infos
+    if combat.get("rouge_id"):
+        rouge = await db.competiteurs.find_one(
+            {"competiteur_id": combat["rouge_id"]},
+            {"_id": 0}
+        )
+        combat["rouge"] = rouge
+    if combat.get("bleu_id"):
+        bleu = await db.competiteurs.find_one(
+            {"competiteur_id": combat["bleu_id"]},
+            {"_id": 0}
+        )
+        combat["bleu"] = bleu
+    
+    categorie = await db.categories.find_one(
+        {"categorie_id": combat["categorie_id"]},
+        {"_id": 0}
+    )
+    combat["categorie"] = categorie
+    
+    return combat
+
+@api_router.post("/arbitre/verifier-finales/{competition_id}")
+async def verifier_lancement_finales(competition_id: str, user: User = Depends(get_current_user)):
+    """
+    Vérifie si tous les combats non-finales sont terminés.
+    Si oui, les finales peuvent commencer.
+    """
+    # Compter les combats non-finales non terminés
+    combats_restants = await db.combats.count_documents({
+        "competition_id": competition_id,
+        "est_finale": False,
+        "termine": False
+    })
+    
+    # Compter les finales
+    finales_total = await db.combats.count_documents({
+        "competition_id": competition_id,
+        "est_finale": True
+    })
+    
+    finales_terminees = await db.combats.count_documents({
+        "competition_id": competition_id,
+        "est_finale": True,
+        "termine": True
+    })
+    
+    peut_lancer_finales = combats_restants == 0
+    
+    return {
+        "combats_reguliers_restants": combats_restants,
+        "finales_total": finales_total,
+        "finales_terminees": finales_terminees,
+        "peut_lancer_finales": peut_lancer_finales,
+        "message": "Les finales peuvent commencer !" if peut_lancer_finales else f"Il reste {combats_restants} combat(s) régulier(s) à terminer"
+    }
+
 # Include router
 app.include_router(api_router)
 
