@@ -401,10 +401,14 @@ export default function ArbreCombatPage() {
                       </Badge>
                       <div className="mt-3 p-4 bg-gradient-to-r from-yellow-100 to-yellow-50 rounded-lg border-2 border-yellow-400">
                         <p className="font-black text-lg text-slate-900">
-                          {competiteurs[finale.vainqueur_id]?.prenom} {competiteurs[finale.vainqueur_id]?.nom}
+                          {finale.vainqueur_id === finale.rouge_id 
+                            ? finale.rouge?.nom 
+                            : finale.bleu?.nom}
                         </p>
                         <p className="text-sm text-slate-600">
-                          {competiteurs[finale.vainqueur_id]?.club}
+                          {finale.vainqueur_id === finale.rouge_id 
+                            ? finale.rouge?.club 
+                            : finale.bleu?.club}
                         </p>
                       </div>
                     </div>
