@@ -82,6 +82,7 @@ class Competiteur(BaseModel):
     poids_officiel: Optional[float] = None  # Poids officiel après pesée
     club: str
     categorie_id: Optional[str] = None
+    surclasse: bool = False  # Si le compétiteur est surclassé dans une catégorie supérieure
     pese: bool = False  # Statut de pesée
     disqualifie: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
