@@ -102,6 +102,7 @@ export default function CategoriesPage() {
     try {
       const payload = {
         ...form,
+        competition_id: selectedCompetition,
         age_min: parseInt(form.age_min),
         age_max: parseInt(form.age_max),
         poids_min: parseFloat(form.poids_min),
