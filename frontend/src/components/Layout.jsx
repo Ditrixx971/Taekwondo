@@ -15,7 +15,9 @@ import {
   Scale,
   Grid3X3,
   PlayCircle,
-  Home
+  Home,
+  TreeDeciduous,
+  List
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -31,6 +33,8 @@ const navItems = [
   { path: "/categories", label: "Catégories", icon: FolderKanban },
   { path: "/aires-combat", label: "Aires de combat", icon: Grid3X3 },
   { path: "/gestion-combats", label: "Gestion combats", icon: Swords },
+  { path: "/arbre-combat", label: "Arbre des combats", icon: TreeDeciduous },
+  { path: "/ordre-combats", label: "Ordre des combats", icon: List },
   { path: "/resultats", label: "Résultats & Médailles", icon: Trophy },
 ];
 
