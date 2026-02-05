@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../App";
+import { useAuth, useCompetition } from "../App";
 import axios from "axios";
 import { toast } from "sonner";
 import {
@@ -12,40 +12,35 @@ import {
   LogOut,
   Menu,
   X,
-  History,
-  UserCog,
-  Grid3X3,
-  Eye,
-  GitBranch,
   Scale,
-  Calendar
+  Grid3X3,
+  PlayCircle,
+  Home
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Badge } from "./ui/badge";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const navItems = [
-  { path: "/competitions", label: "Compétitions", icon: Calendar },
-  { path: "/combats-suivre", label: "Combats à suivre", icon: Eye },
-  { path: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { path: "/competiteurs", label: "Compétiteurs", icon: Users },
+  { path: "/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
+  { path: "/competiteurs", label: "Inscriptions", icon: Users },
   { path: "/pesee", label: "Pesée", icon: Scale },
   { path: "/categories", label: "Catégories", icon: FolderKanban },
-  { path: "/tatamis", label: "Tatamis", icon: Grid3X3 },
-  { path: "/combats", label: "Gestion Combats", icon: Swords },
-  { path: "/arbre-combats", label: "Arbre & Export", icon: GitBranch },
+  { path: "/aires-combat", label: "Aires de combat", icon: Grid3X3 },
+  { path: "/gestion-combats", label: "Gestion combats", icon: Swords },
   { path: "/resultats", label: "Résultats & Médailles", icon: Trophy },
-  { path: "/historique", label: "Historique", icon: History },
 ];
 
 const adminItems = [
-  { path: "/users", label: "Utilisateurs", icon: UserCog },
+  { path: "/users", label: "Utilisateurs", icon: Users },
 ];
 
 export const Layout = ({ children }) => {
   const { user, isAdmin } = useAuth();
+  const { competition, clearCompetition } = useCompetition();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,10 +48,10 @@ export const Layout = ({ children }) => {
   const handleLogout = async () => {
     try {
       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
+      clearCompetition();
       toast.success("Déconnexion réussie");
       navigate("/login", { replace: true });
     } catch (error) {
-      console.error("Logout error:", error);
       navigate("/login", { replace: true });
     }
   };
@@ -77,8 +72,10 @@ export const Layout = ({ children }) => {
         >
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
-        <h1 className="font-bold text-lg tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-          TAEKWONDO
+        <h1 className="font-bold text-lg tracking-tight">
+          <span className="text-red-500">TAE</span>
+          <span className="text-blue-500">KWON</span>
+          <span className="text-slate-900">DO</span>
         </h1>
         <Avatar className="h-8 w-8">
           <AvatarImage src={user?.picture} />
@@ -97,12 +94,38 @@ export const Layout = ({ children }) => {
         <div className="h-full flex flex-col">
           {/* Logo */}
           <div className="h-16 flex items-center px-6 border-b border-slate-100">
-            <h1 className="font-black text-xl tracking-tight uppercase" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h1 className="font-black text-xl tracking-tight uppercase">
               <span className="text-red-500">TAE</span>
               <span className="text-blue-500">KWON</span>
               <span className="text-slate-900">DO</span>
             </h1>
           </div>
+
+          {/* Competition active */}
+          {competition && (
+            <div className="p-4 border-b border-slate-100">
+              <div className="p-3 bg-gradient-to-r from-red-50 to-blue-50 rounded-lg">
+                <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
+                  Compétition active
+                </p>
+                <p className="font-bold text-slate-900 truncate mt-1">
+                  {competition.nom}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {new Date(competition.date).toLocaleDateString('fr-FR')}
+                </p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full mt-2 text-xs"
+                  onClick={() => navigate("/")}
+                >
+                  <Home className="h-3 w-3 mr-1" />
+                  Changer
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Nav */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
