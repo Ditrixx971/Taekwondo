@@ -1,29 +1,25 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "./components/ui/sonner";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
-import Dashboard from "./pages/Dashboard";
-import CompetitionsPage from "./pages/CompetitionsPage";
+import SelectionCompetitionPage from "./pages/SelectionCompetitionPage";
+import DashboardPage from "./pages/DashboardPage";
 import CompetiteursPage from "./pages/CompetiteursPage";
-import CategoriesPage from "./pages/CategoriesPage";
-import CombatsPage from "./pages/CombatsPage";
-import ResultatsPage from "./pages/ResultatsPage";
-import TatamisPage from "./pages/TatamisPage";
-import UsersPage from "./pages/UsersPage";
-import HistoriquePage from "./pages/HistoriquePage";
-import CombatsSuivrePage from "./pages/CombatsSuivrePage";
-import ArbreCombatsPage from "./pages/ArbreCombatsPage";
 import PeseePage from "./pages/PeseePage";
+import CategoriesPage from "./pages/CategoriesPage";
+import AiresCombatPage from "./pages/AiresCombatPage";
+import GestionCombatsPage from "./pages/GestionCombatsPage";
+import ArbitrePage from "./pages/ArbitrePage";
+import ResultatsPage from "./pages/ResultatsPage";
+import UsersPage from "./pages/UsersPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Auth Context
-import { createContext, useContext } from "react";
-
+// ============ AUTH CONTEXT ============
 export const AuthContext = createContext(null);
 
 export const useAuth = () => {
@@ -34,7 +30,18 @@ export const useAuth = () => {
   return context;
 };
 
-// Auth Callback Component
+// ============ COMPETITION CONTEXT ============
+export const CompetitionContext = createContext(null);
+
+export const useCompetition = () => {
+  const context = useContext(CompetitionContext);
+  if (!context) {
+    throw new Error("useCompetition must be used within CompetitionProvider");
+  }
+  return context;
+};
+
+// ============ AUTH CALLBACK ============
 const AuthCallback = () => {
   const navigate = useNavigate();
   const hasProcessed = useRef(false);
@@ -51,7 +58,7 @@ const AuthCallback = () => {
         const sessionId = sessionIdMatch[1];
         try {
           const response = await axios.post(`${API}/auth/session`, { session_id: sessionId }, { withCredentials: true });
-          navigate("/dashboard", { state: { user: response.data }, replace: true });
+          navigate("/", { state: { user: response.data }, replace: true });
         } catch (error) {
           console.error("Auth error:", error);
           navigate("/login", { replace: true });
@@ -74,13 +81,16 @@ const AuthCallback = () => {
   );
 };
 
-// Protected Route
-const ProtectedRoute = ({ children }) => {
+// ============ PROTECTED ROUTE WITH CONTEXTS ============
+const ProtectedRoute = ({ children, requireCompetition = true }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(location.state?.user ? true : null);
   const [user, setUser] = useState(location.state?.user || null);
+  const [competition, setCompetition] = useState(null);
+  const [loadingCompetition, setLoadingCompetition] = useState(true);
 
+  // Check auth
   useEffect(() => {
     if (location.state?.user) {
       setUser(location.state.user);
@@ -102,7 +112,37 @@ const ProtectedRoute = ({ children }) => {
     checkAuth();
   }, [location.state, navigate]);
 
-  if (isAuthenticated === null) {
+  // Load saved competition
+  useEffect(() => {
+    const loadCompetition = async () => {
+      const savedId = localStorage.getItem('activeCompetitionId');
+      if (savedId) {
+        try {
+          const response = await axios.get(`${API}/competitions/${savedId}`, { withCredentials: true });
+          setCompetition(response.data);
+        } catch (error) {
+          localStorage.removeItem('activeCompetitionId');
+        }
+      }
+      setLoadingCompetition(false);
+    };
+
+    if (isAuthenticated) {
+      loadCompetition();
+    }
+  }, [isAuthenticated]);
+
+  const selectCompetition = (comp) => {
+    setCompetition(comp);
+    localStorage.setItem('activeCompetitionId', comp.competition_id);
+  };
+
+  const clearCompetition = () => {
+    setCompetition(null);
+    localStorage.removeItem('activeCompetitionId');
+  };
+
+  if (isAuthenticated === null || loadingCompetition) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
@@ -114,19 +154,24 @@ const ProtectedRoute = ({ children }) => {
     return null;
   }
 
+  // Redirect to selection if no competition and route requires it
+  if (requireCompetition && !competition && location.pathname !== "/") {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <AuthContext.Provider value={{ user, setUser, isAdmin: user?.role === "admin" }}>
-      {children}
+      <CompetitionContext.Provider value={{ competition, selectCompetition, clearCompetition }}>
+        {children}
+      </CompetitionContext.Provider>
     </AuthContext.Provider>
   );
 };
 
-// App Router
+// ============ APP ROUTER ============
 function AppRouter() {
   const location = useLocation();
 
-  // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-  // Check URL fragment for session_id synchronously
   if (location.hash?.includes("session_id=")) {
     return <AuthCallback />;
   }
@@ -134,19 +179,27 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/competitions" element={<ProtectedRoute><CompetitionsPage /></ProtectedRoute>} />
+      
+      {/* Page de sélection de compétition - point d'entrée */}
+      <Route path="/" element={
+        <ProtectedRoute requireCompetition={false}>
+          <SelectionCompetitionPage />
+        </ProtectedRoute>
+      } />
+      
+      {/* Pages qui nécessitent une compétition active */}
+      <Route path="/tableau-de-bord" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/competiteurs" element={<ProtectedRoute><CompetiteursPage /></ProtectedRoute>} />
       <Route path="/pesee" element={<ProtectedRoute><PeseePage /></ProtectedRoute>} />
       <Route path="/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
-      <Route path="/tatamis" element={<ProtectedRoute><TatamisPage /></ProtectedRoute>} />
-      <Route path="/combats" element={<ProtectedRoute><CombatsPage /></ProtectedRoute>} />
-      <Route path="/combats-suivre" element={<ProtectedRoute><CombatsSuivrePage /></ProtectedRoute>} />
-      <Route path="/arbre-combats" element={<ProtectedRoute><ArbreCombatsPage /></ProtectedRoute>} />
+      <Route path="/aires-combat" element={<ProtectedRoute><AiresCombatPage /></ProtectedRoute>} />
+      <Route path="/gestion-combats" element={<ProtectedRoute><GestionCombatsPage /></ProtectedRoute>} />
+      <Route path="/arbitre/:aireId" element={<ProtectedRoute><ArbitrePage /></ProtectedRoute>} />
       <Route path="/resultats" element={<ProtectedRoute><ResultatsPage /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
-      <Route path="/historique" element={<ProtectedRoute><HistoriquePage /></ProtectedRoute>} />
-      <Route path="/" element={<Navigate to="/competitions" replace />} />
+      
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
