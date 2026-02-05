@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Plus, Pencil, Trash2, Search, Users, AlertTriangle } from "lucide-react";
+import { Checkbox } from "../components/ui/checkbox";
+import { Plus, Pencil, Trash2, Search, Users, AlertTriangle, ArrowUpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -23,7 +24,9 @@ const initialForm = {
   date_naissance: "",
   sexe: "M",
   poids_declare: "",
-  club: ""
+  club: "",
+  surclasse: false,
+  categorie_surclasse_id: ""
 };
 
 export default function CompetiteursPage() {
