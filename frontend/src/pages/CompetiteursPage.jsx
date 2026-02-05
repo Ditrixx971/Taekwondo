@@ -376,38 +376,6 @@ export default function CompetiteursPage() {
           </Dialog>
         </motion.div>
 
-        {/* Sélection compétition */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
-          <Card className="border-slate-200">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 max-w-md">
-                  <Label className="text-xs text-slate-500 mb-1 block">Compétition</Label>
-                  <Select value={selectedCompetition} onValueChange={(val) => {
-                    setSelectedCompetition(val);
-                    localStorage.setItem('selectedCompetition', val);
-                  }}>
-                    <SelectTrigger data-testid="select-competition">
-                      <SelectValue placeholder="Sélectionner une compétition" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {competitions.map(comp => (
-                        <SelectItem key={comp.competition_id} value={comp.competition_id}>
-                          {comp.nom} - {new Date(comp.date).toLocaleDateString('fr-FR')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
         {/* Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
