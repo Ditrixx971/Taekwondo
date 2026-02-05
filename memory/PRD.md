@@ -9,17 +9,13 @@ Application web de gestion de compétitions de Taekwondo avec:
 - Attribution des médailles (Or, Argent, Bronze)
 - Gestion multi-tatamis
 - Historique des modifications
-
-### Nouvelles fonctionnalités (v2)
-- Vue des combats à suivre en temps réel avec filtres
-- Mode de déroulement: complet ou finales à la fin
-- Planification horaire avec heure de début et durée par combat
-- Arbre des combats interactif avec export PDF
-- Gestion des statuts (à venir, en cours, terminé, non disputé)
+- **Gestion multi-compétitions** avec isolation des données
+- **Pesée officielle** avec recalcul automatique des catégories
+- **Surclassement** permettant l'inscription dans une catégorie d'âge supérieure
 
 ## User Personas
-1. **Administrateur**: Gestion complète - compétiteurs, combats, résultats, médailles, utilisateurs, planification
-2. **Coach**: Ajouter des compétiteurs, consulter les combats et résultats en temps réel
+1. **Administrateur**: Gestion complète - compétiteurs, combats, résultats, médailles, utilisateurs, planification, pesée
+2. **Coach**: Ajouter des compétiteurs (avec option surclassement), consulter les combats et résultats
 
 ## Core Requirements
 - ✅ Authentification Google OAuth + JWT
@@ -35,6 +31,10 @@ Application web de gestion de compétitions de Taekwondo avec:
 - ✅ Mode déroulement (complet/finales à la fin)
 - ✅ Planification horaire
 - ✅ Arbre interactif + Export PDF
+- ✅ Gestion multi-compétitions
+- ✅ Onglet Pesée avec recalcul catégorie
+- ✅ **126 catégories officielles FFTA/FFDA**
+- ✅ **Surclassement** (inscription dans catégorie supérieure)
 
 ## Architecture
 - **Backend**: FastAPI + MongoDB
@@ -54,7 +54,7 @@ Application web de gestion de compétitions de Taekwondo avec:
 - Stats endpoint
 - User management (admin only)
 
-### Phase 2 (26 Jan 2025) - Nouvelles fonctionnalités
+### Phase 2 (26 Jan 2025) - Combats & Planification
 - GET /api/combats/suivre: Liste enrichie avec filtres
 - POST /api/combats/planifier/{categorie_id}: Planification horaire
 - GET /api/combats/arbre/{categorie_id}: Arbre complet pour export
@@ -64,15 +64,39 @@ Application web de gestion de compétitions de Taekwondo avec:
 - POST /api/combats/{combat_id}/suivant: Passage au combat suivant
 - PUT /api/combats/modifier-ordre: Modification de l'ordre
 
+### Phase 3 (26 Jan 2025) - Multi-compétition & Pesée
+- Gestion multi-compétitions avec isolation des données
+- Onglet Pesée avec poids officiel et recalcul catégorie
+- Contrôle d'accès basé sur les rôles (admin/coach)
+
+### Phase 4 (5 Feb 2026) - Catégories Officielles & Surclassement
+- **POST /api/categories/seed/{competition_id}**: Création des 126 catégories officielles FFTA/FFDA
+  - Pupilles 1 (6 ans), Pupilles 2 (7 ans)
+  - Benjamins (8-9 ans)
+  - Minimes (10-11 ans)
+  - Cadets (12-13 ans)
+  - Juniors (14-17 ans)
+  - Seniors (18-29 ans)
+  - Masters (30+ ans)
+- **GET /api/categories/for-surclassement/{competition_id}**: Catégories disponibles pour surclassement
+- **GET /api/categories/age-groups**: Liste des groupes d'âge officiels
+- **Surclassement à l'inscription**:
+  - Option checkbox dans le formulaire d'ajout
+  - Dropdown avec catégories d'âge supérieur
+  - Validation du poids par rapport à la catégorie choisie
+  - Badge "Surclassé" affiché dans la liste des compétiteurs
+
 ### Frontend Pages
 - LoginPage: JWT + Google Auth
 - Dashboard: Stats overview
-- CombatsSuivrePage: Vue temps réel avec filtres et lancement
-- ArbreCombatsPage: Visualisation arbre + Export PDF
-- CompetiteursPage: List, add, edit, delete
-- CategoriesPage: List, create, delete
+- **CompetitionsPage**: Liste, création, sélection de compétitions
+- **CompetiteursPage**: List, add (avec surclassement), edit, delete
+- **PeseePage**: Pesée officielle avec recalcul catégorie
+- **CategoriesPage**: List avec bouton "Catégories officielles" pour seeding
 - TatamisPage: List, create, delete
 - CombatsPage: View brackets, enter results
+- CombatsSuivrePage: Vue temps réel avec filtres et lancement
+- ArbreCombatsPage: Visualisation arbre + Export PDF
 - ResultatsPage: Podium display, medal attribution
 - UsersPage: Role management (admin)
 - HistoriquePage: Modification audit trail
@@ -87,13 +111,18 @@ Application web de gestion de compétitions de Taekwondo avec:
 - ✅ Vue combats à suivre
 - ✅ Planification horaire
 - ✅ Export PDF
+- ✅ Multi-compétition
+- ✅ Pesée officielle
+- ✅ Catégories officielles FFTA/FFDA
+- ✅ Surclassement
 
 ### P1 (High Priority)
+- Synchroniser toutes les pages frontend avec competition_id
 - Drag & drop pour réorganiser les combats
 - Timer de combat intégré avec buzzer
-- Mode hors-ligne amélioré (PWA)
 
 ### P2 (Medium Priority)
+- Mode hors-ligne amélioré (PWA)
 - Statistiques avancées par compétiteur
 - Notifications en temps réel (WebSocket)
 - Gestion des pauses programmées
@@ -103,8 +132,13 @@ Application web de gestion de compétitions de Taekwondo avec:
 - Dark mode
 - Application mobile native
 
+## Test Credentials
+- **Admin**: admin2@test.com / admin123
+- **Competition test**: comp_535694c8e8dc (Open de Paris 2026)
+
 ## Next Tasks
-1. Améliorer l'UX du drag & drop pour réorganisation
-2. Ajouter timer de combat avec contrôles
-3. Implémenter PWA pour usage offline
-4. Ajouter WebSocket pour mise à jour temps réel
+1. ~~Implémenter les catégories officielles FFTA/FFDA~~
+2. ~~Implémenter le surclassement~~
+3. Synchroniser le frontend avec competition_id sur toutes les pages
+4. Améliorer l'UX du drag & drop pour réorganisation
+5. Ajouter timer de combat avec contrôles
