@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
+    const redirectUrl = window.location.origin + '/';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
@@ -35,7 +35,7 @@ export default function LoginPage() {
     try {
       const response = await axios.post(`${API}/auth/login`, loginData, { withCredentials: true });
       toast.success("Connexion réussie !");
-      navigate("/dashboard", { state: { user: response.data }, replace: true });
+      navigate("/", { state: { user: response.data }, replace: true });
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur de connexion");
     } finally {
@@ -49,7 +49,7 @@ export default function LoginPage() {
     try {
       const response = await axios.post(`${API}/auth/register`, registerData, { withCredentials: true });
       toast.success("Inscription réussie !");
-      navigate("/dashboard", { state: { user: response.data }, replace: true });
+      navigate("/", { state: { user: response.data }, replace: true });
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur d'inscription");
     } finally {
