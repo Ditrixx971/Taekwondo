@@ -571,12 +571,42 @@ async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_c
     if competition.get("statut") != "active" and user.role != "admin":
         raise HTTPException(status_code=400, detail="La compétition n'est plus active")
     
-    comp = Competiteur(**data.model_dump(), created_by=user.user_id)
+    comp = Competiteur(
+        competition_id=data.competition_id,
+        nom=data.nom,
+        prenom=data.prenom,
+        date_naissance=data.date_naissance,
+        sexe=data.sexe,
+        poids_declare=data.poids_declare,
+        club=data.club,
+        surclasse=data.surclasse,
+        created_by=user.user_id
+    )
     comp_dict = comp.model_dump()
     comp_dict["created_at"] = comp_dict["created_at"].isoformat()
     
-    categorie_id = await assign_categorie(comp_dict, data.competition_id)
-    comp_dict["categorie_id"] = categorie_id
+    # Si surclassé, utiliser la catégorie choisie manuellement
+    if data.surclasse and data.categorie_surclasse_id:
+        # Vérifier que la catégorie existe et est valide
+        categorie = await db.categories.find_one({
+            "categorie_id": data.categorie_surclasse_id,
+            "competition_id": data.competition_id
+        }, {"_id": 0})
+        if not categorie:
+            raise HTTPException(status_code=400, detail="Catégorie de surclassement invalide")
+        
+        # Vérifier que le poids est compatible avec la catégorie
+        if data.poids_declare < categorie["poids_min"] or data.poids_declare > categorie["poids_max"]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Le poids {data.poids_declare}kg n'est pas compatible avec la catégorie {categorie['nom']} ({categorie['poids_min']}-{categorie['poids_max']}kg)"
+            )
+        
+        comp_dict["categorie_id"] = data.categorie_surclasse_id
+    else:
+        # Attribution automatique basée sur l'âge et le poids
+        categorie_id = await assign_categorie(comp_dict, data.competition_id)
+        comp_dict["categorie_id"] = categorie_id
     
     await db.competiteurs.insert_one(comp_dict)
     comp_dict.pop("_id", None)
