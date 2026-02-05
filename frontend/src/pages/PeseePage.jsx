@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
-import { useAuth } from "../App";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { useAuth, useCompetition } from "../App";
+import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -16,8 +16,7 @@ import {
   X, 
   AlertTriangle,
   Download,
-  Search,
-  Filter
+  Search
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -26,8 +25,7 @@ const API = `${BACKEND_URL}/api`;
 
 export default function PeseePage() {
   const { isAdmin } = useAuth();
-  const [competitions, setCompetitions] = useState([]);
-  const [selectedCompetition, setSelectedCompetition] = useState("");
+  const { competition } = useCompetition();
   const [competiteurs, setCompetiteurs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -39,40 +37,19 @@ export default function PeseePage() {
   const [poidsOfficiel, setPoidsOfficiel] = useState("");
 
   useEffect(() => {
-    fetchCompetitions();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCompetition) {
+    if (competition) {
       fetchPesee();
     }
-  }, [selectedCompetition]);
-
-  const fetchCompetitions = async () => {
-    try {
-      const response = await axios.get(`${API}/competitions?statut=active`, { withCredentials: true });
-      setCompetitions(response.data);
-      
-      // Sélectionner la compétition sauvegardée ou la première
-      const saved = localStorage.getItem('selectedCompetition');
-      if (saved && response.data.find(c => c.competition_id === saved)) {
-        setSelectedCompetition(saved);
-      } else if (response.data.length > 0) {
-        setSelectedCompetition(response.data[0].competition_id);
-      }
-    } catch (error) {
-      toast.error("Erreur lors du chargement des compétitions");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [competition]);
 
   const fetchPesee = async () => {
     try {
-      const response = await axios.get(`${API}/pesee/${selectedCompetition}`, { withCredentials: true });
+      const response = await axios.get(`${API}/pesee/${competition.competition_id}`, { withCredentials: true });
       setCompetiteurs(response.data);
     } catch (error) {
       console.error("Error fetching pesee:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -121,7 +98,6 @@ export default function PeseePage() {
   };
 
   const handleExportPesee = () => {
-    // Créer CSV
     const headers = ["Nom", "Prénom", "Club", "Sexe", "Poids déclaré", "Poids officiel", "Catégorie", "Statut pesée"];
     const rows = filteredCompetiteurs.map(c => [
       c.nom,
@@ -139,7 +115,7 @@ export default function PeseePage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `pesee_${selectedCompetition}.csv`;
+    link.download = `pesee_${competition.competition_id}.csv`;
     link.click();
   };
 
@@ -181,7 +157,7 @@ export default function PeseePage() {
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
         >
           <div>
-            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
               Pesée
             </h1>
             <p className="text-slate-500 mt-1">Gestion des poids officiels</p>
@@ -193,7 +169,7 @@ export default function PeseePage() {
           </Button>
         </motion.div>
 
-        {/* Sélection compétition et stats */}
+        {/* Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -201,49 +177,50 @@ export default function PeseePage() {
         >
           <Card className="border-slate-200">
             <CardContent className="p-4">
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-                <div className="flex-1 max-w-md">
-                  <Select value={selectedCompetition} onValueChange={(val) => {
-                    setSelectedCompetition(val);
-                    localStorage.setItem('selectedCompetition', val);
-                  }}>
-                    <SelectTrigger data-testid="select-competition-pesee">
-                      <SelectValue placeholder="Sélectionner une compétition" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {competitions.map(comp => (
-                        <SelectItem key={comp.competition_id} value={comp.competition_id}>
-                          {comp.nom} - {new Date(comp.date).toLocaleDateString('fr-FR')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="flex gap-4 justify-center">
+                <div className="text-center px-6 py-3 bg-slate-50 rounded-lg">
+                  <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
+                  <p className="text-xs text-slate-500">Total</p>
                 </div>
-                
-                <div className="flex gap-4">
-                  <div className="text-center px-4 py-2 bg-slate-50 rounded-lg">
-                    <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-                    <p className="text-xs text-slate-500">Total</p>
-                  </div>
-                  <div className="text-center px-4 py-2 bg-green-50 rounded-lg">
-                    <p className="text-2xl font-bold text-green-600">{stats.peses}</p>
-                    <p className="text-xs text-slate-500">Pesés</p>
-                  </div>
-                  <div className="text-center px-4 py-2 bg-amber-50 rounded-lg">
-                    <p className="text-2xl font-bold text-amber-600">{stats.nonPeses}</p>
-                    <p className="text-xs text-slate-500">À peser</p>
-                  </div>
+                <div className="text-center px-6 py-3 bg-green-50 rounded-lg">
+                  <p className="text-3xl font-bold text-green-600">{stats.peses}</p>
+                  <p className="text-xs text-slate-500">Pesés</p>
+                </div>
+                <div className="text-center px-6 py-3 bg-amber-50 rounded-lg">
+                  <p className="text-3xl font-bold text-amber-600">{stats.nonPeses}</p>
+                  <p className="text-xs text-slate-500">À peser</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
+        {/* Barre de progression */}
+        {stats.total > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-500"
+                  style={{ width: `${(stats.peses / stats.total) * 100}%` }}
+                />
+              </div>
+              <span className="text-sm font-bold text-slate-700">
+                {Math.round((stats.peses / stats.total) * 100)}%
+              </span>
+            </div>
+          </motion.div>
+        )}
+
         {/* Filtres */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
+          transition={{ delay: 0.2 }}
         >
           <Card className="border-slate-200">
             <CardContent className="p-4">
@@ -273,27 +250,6 @@ export default function PeseePage() {
           </Card>
         </motion.div>
 
-        {/* Barre de progression */}
-        {stats.total > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-500"
-                  style={{ width: `${(stats.peses / stats.total) * 100}%` }}
-                />
-              </div>
-              <span className="text-sm font-bold text-slate-700">
-                {Math.round((stats.peses / stats.total) * 100)}%
-              </span>
-            </div>
-          </motion.div>
-        )}
-
         {/* Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -312,7 +268,7 @@ export default function PeseePage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="table-header">
+                      <TableRow>
                         <TableHead>Statut</TableHead>
                         <TableHead>Nom</TableHead>
                         <TableHead>Club</TableHead>
@@ -348,10 +304,10 @@ export default function PeseePage() {
                               {comp.sexe}
                             </Badge>
                           </TableCell>
-                          <TableCell className="score-display">
+                          <TableCell>
                             {comp.poids_declare} kg
                           </TableCell>
-                          <TableCell className="score-display font-bold">
+                          <TableCell className="font-bold">
                             {comp.poids_officiel ? (
                               <span className={comp.poids_officiel !== comp.poids_declare ? "text-blue-600" : ""}>
                                 {comp.poids_officiel} kg
@@ -404,7 +360,7 @@ export default function PeseePage() {
         <Dialog open={peseeDialog} onOpenChange={setPeseeDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="font-bold uppercase tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
+              <DialogTitle className="font-bold uppercase tracking-wide">
                 Enregistrer la pesée
               </DialogTitle>
             </DialogHeader>
