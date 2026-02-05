@@ -516,9 +516,17 @@ export default function CompetiteursPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {getCategorieNom(comp.categorie_id)}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline">
+                                {getCategorieNom(comp.categorie_id)}
+                              </Badge>
+                              {comp.surclasse && (
+                                <Badge className="bg-blue-100 text-blue-700 text-xs">
+                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                  Surclassé
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {comp.disqualifie ? (
