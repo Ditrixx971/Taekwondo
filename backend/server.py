@@ -726,6 +726,148 @@ async def delete_categorie(categorie_id: str, user: User = Depends(require_admin
         raise HTTPException(status_code=404, detail="Catégorie non trouvée")
     return {"message": "Catégorie supprimée"}
 
+# ============ SEED CATEGORIES OFFICIELLES ============
+
+# Définition des catégories officielles FFTA/FFDA 2025/2026
+CATEGORIES_OFFICIELLES = {
+    "Pupilles 1": {
+        "age_min": 6, "age_max": 6,
+        "M": [("-21kg", 0, 21), ("-24kg", 21, 24), ("-27kg", 24, 27), ("+27kg", 27, 200)],
+        "F": [("-17kg", 0, 17), ("-20kg", 17, 20), ("-23kg", 20, 23), ("+23kg", 23, 200)]
+    },
+    "Pupilles 2": {
+        "age_min": 7, "age_max": 7,
+        "M": [("-21kg", 0, 21), ("-24kg", 21, 24), ("-27kg", 24, 27), ("-30kg", 27, 30), ("+30kg", 30, 200)],
+        "F": [("-17kg", 0, 17), ("-20kg", 17, 20), ("-23kg", 20, 23), ("-26kg", 23, 26), ("+26kg", 26, 200)]
+    },
+    "Benjamins": {
+        "age_min": 8, "age_max": 9,
+        "M": [("-21kg", 0, 21), ("-24kg", 21, 24), ("-27kg", 24, 27), ("-30kg", 27, 30), ("-33kg", 30, 33), 
+              ("-37kg", 33, 37), ("-41kg", 37, 41), ("-45kg", 41, 45), ("-49kg", 45, 49), ("+49kg", 49, 200)],
+        "F": [("-17kg", 0, 17), ("-20kg", 17, 20), ("-23kg", 20, 23), ("-26kg", 23, 26), ("-29kg", 26, 29), 
+              ("-33kg", 29, 33), ("-37kg", 33, 37), ("-41kg", 37, 41), ("-44kg", 41, 44), ("+44kg", 44, 200)]
+    },
+    "Minimes": {
+        "age_min": 10, "age_max": 11,
+        "M": [("-27kg", 0, 27), ("-30kg", 27, 30), ("-33kg", 30, 33), ("-37kg", 33, 37), ("-41kg", 37, 41), 
+              ("-45kg", 41, 45), ("-49kg", 45, 49), ("-53kg", 49, 53), ("-57kg", 53, 57), ("+57kg", 57, 200)],
+        "F": [("-23kg", 0, 23), ("-26kg", 23, 26), ("-29kg", 26, 29), ("-33kg", 29, 33), ("-37kg", 33, 37), 
+              ("-41kg", 37, 41), ("-44kg", 41, 44), ("-47kg", 44, 47), ("-51kg", 47, 51), ("+51kg", 51, 200)]
+    },
+    "Cadets": {
+        "age_min": 12, "age_max": 13,
+        "M": [("-33kg", 0, 33), ("-37kg", 33, 37), ("-41kg", 37, 41), ("-45kg", 41, 45), ("-49kg", 45, 49), 
+              ("-53kg", 49, 53), ("-57kg", 53, 57), ("-61kg", 57, 61), ("-65kg", 61, 65), ("+65kg", 65, 200)],
+        "F": [("-29kg", 0, 29), ("-33kg", 29, 33), ("-37kg", 33, 37), ("-41kg", 37, 41), ("-44kg", 41, 44), 
+              ("-47kg", 44, 47), ("-51kg", 47, 51), ("-55kg", 51, 55), ("-59kg", 55, 59), ("+59kg", 59, 200)]
+    },
+    "Juniors": {
+        "age_min": 14, "age_max": 17,
+        "M": [("-45kg", 0, 45), ("-48kg", 45, 48), ("-51kg", 48, 51), ("-55kg", 51, 55), ("-59kg", 55, 59), 
+              ("-63kg", 59, 63), ("-68kg", 63, 68), ("-73kg", 68, 73), ("-78kg", 73, 78), ("+78kg", 78, 200)],
+        "F": [("-42kg", 0, 42), ("-44kg", 42, 44), ("-46kg", 44, 46), ("-49kg", 46, 49), ("-52kg", 49, 52), 
+              ("-55kg", 52, 55), ("-59kg", 55, 59), ("-63kg", 59, 63), ("-68kg", 63, 68), ("+68kg", 68, 200)]
+    },
+    "Seniors": {
+        "age_min": 18, "age_max": 29,
+        "M": [("-54kg", 0, 54), ("-58kg", 54, 58), ("-63kg", 58, 63), ("-68kg", 63, 68), ("-74kg", 68, 74), 
+              ("-80kg", 74, 80), ("-87kg", 80, 87), ("+87kg", 87, 200)],
+        "F": [("-46kg", 0, 46), ("-49kg", 46, 49), ("-53kg", 49, 53), ("-57kg", 53, 57), ("-62kg", 57, 62), 
+              ("-67kg", 62, 67), ("-73kg", 67, 73), ("+73kg", 73, 200)]
+    },
+    "Masters": {
+        "age_min": 30, "age_max": 99,
+        "M": [("-58kg", 0, 58), ("-63kg", 58, 63), ("-68kg", 63, 68), ("-74kg", 68, 74), ("-80kg", 74, 80), ("+80kg", 80, 200)],
+        "F": [("-49kg", 0, 49), ("-53kg", 49, 53), ("-57kg", 53, 57), ("-62kg", 57, 62), ("-67kg", 62, 67), ("+67kg", 67, 200)]
+    }
+}
+
+@api_router.post("/categories/seed/{competition_id}")
+async def seed_categories(competition_id: str, user: User = Depends(require_admin)):
+    """Peuple une compétition avec toutes les catégories officielles FFTA/FFDA"""
+    # Vérifier que la compétition existe
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    # Supprimer les catégories existantes de cette compétition
+    await db.categories.delete_many({"competition_id": competition_id})
+    
+    categories_created = []
+    
+    for categorie_age, config in CATEGORIES_OFFICIELLES.items():
+        age_min = config["age_min"]
+        age_max = config["age_max"]
+        
+        # Catégories masculines
+        for poids_nom, poids_min, poids_max in config["M"]:
+            cat = Categorie(
+                competition_id=competition_id,
+                nom=f"{categorie_age} Masculin {poids_nom}",
+                age_min=age_min,
+                age_max=age_max,
+                sexe="M",
+                poids_min=poids_min,
+                poids_max=poids_max
+            )
+            cat_dict = cat.model_dump()
+            await db.categories.insert_one(cat_dict)
+            cat_dict.pop("_id", None)
+            categories_created.append(cat_dict)
+        
+        # Catégories féminines
+        for poids_nom, poids_min, poids_max in config["F"]:
+            cat = Categorie(
+                competition_id=competition_id,
+                nom=f"{categorie_age} Féminin {poids_nom}",
+                age_min=age_min,
+                age_max=age_max,
+                sexe="F",
+                poids_min=poids_min,
+                poids_max=poids_max
+            )
+            cat_dict = cat.model_dump()
+            await db.categories.insert_one(cat_dict)
+            cat_dict.pop("_id", None)
+            categories_created.append(cat_dict)
+    
+    return {
+        "message": f"{len(categories_created)} catégories créées pour la compétition",
+        "total": len(categories_created)
+    }
+
+@api_router.get("/categories/age-groups")
+async def get_age_groups():
+    """Retourne la liste des groupes d'âge pour le surclassement"""
+    groups = []
+    for nom, config in CATEGORIES_OFFICIELLES.items():
+        groups.append({
+            "nom": nom,
+            "age_min": config["age_min"],
+            "age_max": config["age_max"]
+        })
+    return groups
+
+@api_router.get("/categories/for-surclassement/{competition_id}")
+async def get_categories_for_surclassement(
+    competition_id: str,
+    sexe: str,
+    age: int,
+    user: User = Depends(get_current_user)
+):
+    """Retourne les catégories disponibles pour le surclassement (âge égal ou supérieur)"""
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    # Récupérer toutes les catégories du sexe demandé avec âge >= âge du compétiteur
+    categories = await db.categories.find({
+        "competition_id": competition_id,
+        "sexe": sexe,
+        "age_min": {"$gte": age}
+    }, {"_id": 0}).sort([("age_min", 1), ("poids_min", 1)]).to_list(500)
+    
+    return categories
+
 # ============ TATAMIS ENDPOINTS ============
 
 @api_router.get("/tatamis")
