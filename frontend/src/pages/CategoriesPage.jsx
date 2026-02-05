@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Plus, Trash2, FolderKanban, Users } from "lucide-react";
+import { Plus, Trash2, FolderKanban, Users, Download, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -28,28 +28,72 @@ const initialForm = {
 
 export default function CategoriesPage() {
   const { isAdmin } = useAuth();
+  const [competitions, setCompetitions] = useState([]);
+  const [selectedCompetition, setSelectedCompetition] = useState("");
   const [categories, setCategories] = useState([]);
   const [competiteurs, setCompetiteurs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
-    fetchData();
+    fetchCompetitions();
   }, []);
+
+  useEffect(() => {
+    if (selectedCompetition) {
+      fetchData();
+    }
+  }, [selectedCompetition]);
+
+  const fetchCompetitions = async () => {
+    try {
+      const response = await axios.get(`${API}/competitions`, { withCredentials: true });
+      setCompetitions(response.data);
+      
+      const saved = localStorage.getItem('selectedCompetition');
+      if (saved && response.data.find(c => c.competition_id === saved)) {
+        setSelectedCompetition(saved);
+      } else if (response.data.length > 0) {
+        setSelectedCompetition(response.data[0].competition_id);
+      }
+    } catch (error) {
+      toast.error("Erreur lors du chargement des compétitions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
       const [catRes, compRes] = await Promise.all([
-        axios.get(`${API}/categories`, { withCredentials: true }),
-        axios.get(`${API}/competiteurs`, { withCredentials: true })
+        axios.get(`${API}/categories?competition_id=${selectedCompetition}`, { withCredentials: true }),
+        axios.get(`${API}/competiteurs?competition_id=${selectedCompetition}`, { withCredentials: true })
       ]);
       setCategories(catRes.data);
       setCompetiteurs(compRes.data);
     } catch (error) {
       toast.error("Erreur lors du chargement des données");
+    }
+  };
+
+  const handleSeedCategories = async () => {
+    if (!window.confirm("Cela va supprimer les catégories existantes et créer toutes les catégories officielles FFTA/FFDA. Continuer ?")) return;
+    
+    setSeeding(true);
+    try {
+      const response = await axios.post(
+        `${API}/categories/seed/${selectedCompetition}`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(`${response.data.total} catégories officielles créées !`);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de la création des catégories");
     } finally {
-      setLoading(false);
+      setSeeding(false);
     }
   };
 
