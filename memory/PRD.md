@@ -1,144 +1,122 @@
 # Taekwondo Competition Manager - PRD
 
 ## Original Problem Statement
-Application web de gestion de compétitions de Taekwondo avec:
-- Gestion des rôles (Coach et Administrateur)
-- Gestion des compétiteurs avec attribution automatique des catégories
-- Génération automatique d'arbres de combat (quarts, demi, finale)
-- Saisie des résultats avec types de victoire (normale, forfait, abandon, disqualification)
-- Attribution des médailles (Or, Argent, Bronze)
-- Gestion multi-tatamis
-- Historique des modifications
-- **Gestion multi-compétitions** avec isolation des données
-- **Pesée officielle** avec recalcul automatique des catégories
-- **Surclassement** permettant l'inscription dans une catégorie d'âge supérieure
+Application web de gestion de compétitions de Taekwondo **simplifiée et centrée sur une seule compétition active**. L'application doit:
+- Être utilisable par un administrateur et des coachs
+- Gérer les inscriptions, la pesée, les combats et les résultats
+- Respecter les règles officielles Taekwondo (élimination directe, finales à la fin)
+- Répartir automatiquement les combats sur plusieurs aires de combat
 
 ## User Personas
-1. **Administrateur**: Gestion complète - compétiteurs, combats, résultats, médailles, utilisateurs, planification, pesée
+1. **Administrateur**: Gestion complète - compétiteurs, combats, résultats, médailles, utilisateurs
 2. **Coach**: Ajouter des compétiteurs (avec option surclassement), consulter les combats et résultats
 
-## Core Requirements
-- ✅ Authentification Google OAuth + JWT
-- ✅ Gestion des compétiteurs (CRUD)
-- ✅ Catégories automatiques (âge/sexe/poids)
-- ✅ Génération d'arbres de combat
-- ✅ Gestion multi-tatamis
-- ✅ Saisie des résultats (admin only)
-- ✅ Attribution des médailles
-- ✅ Historique des modifications
-- ✅ Interface en français
-- ✅ Vue combats à suivre avec filtres
-- ✅ Mode déroulement (complet/finales à la fin)
-- ✅ Planification horaire
-- ✅ Arbre interactif + Export PDF
-- ✅ Gestion multi-compétitions
-- ✅ Onglet Pesée avec recalcul catégorie
-- ✅ **126 catégories officielles FFTA/FFDA**
-- ✅ **Surclassement** (inscription dans catégorie supérieure)
+## Core Architecture (Simplifiée)
 
-## Architecture
-- **Backend**: FastAPI + MongoDB
-- **Frontend**: React + Tailwind CSS + Shadcn UI + Framer Motion
-- **Auth**: JWT + Google OAuth (Emergent Auth)
+### Workflow Utilisateur
+1. **Connexion** → Page de sélection de compétition
+2. **Sélection** de la compétition active (verrouillée pour toute la session)
+3. **Workflow**: Inscriptions → Pesée → Aires de combat → Combats → Résultats
+
+### Pages Principales
+- `/` - **SelectionCompetitionPage**: Choix de la compétition active
+- `/tableau-de-bord` - **DashboardPage**: Vue d'ensemble avec progression
+- `/competiteurs` - **CompetiteursPage**: Inscriptions avec option surclassement
+- `/pesee` - **PeseePage**: Pesée officielle et attribution automatique de catégorie
+- `/categories` - **CategoriesPage**: Catégories officielles FFTA/FFDA
+- `/aires-combat` - **AiresCombatPage**: Gestion des 2-3 aires de combat
+- `/gestion-combats` - **GestionCombatsPage**: Génération et répartition des combats
+- `/arbitre/:aireId` - **ArbitrePage**: Vue par aire pour saisie des résultats
+- `/resultats` - **ResultatsPage**: Médailles par catégorie
+
+### Règles Taekwondo Implémentées
+- ✅ **Élimination directe**: Un perdant est éliminé définitivement (sauf demi-finale → bronze)
+- ✅ **Finales à la fin**: Toutes les finales sont regroupées à la fin de la compétition
+- ✅ **126 catégories officielles FFTA/FFDA** (Pupilles 1-2, Benjamins, Minimes, Cadets, Juniors, Seniors, Masters)
+- ✅ **Surclassement**: Option pour inscrire un compétiteur dans une catégorie d'âge supérieure
 
 ## What's Been Implemented
 
-### Phase 1 (26 Jan 2025)
-- Auth endpoints: register, login, Google OAuth session, logout, me
-- Competiteurs CRUD with auto-category assignment
-- Categories CRUD
-- Tatamis CRUD
-- Combats: generation (bracket), results, winner propagation
-- Medals attribution
-- History tracking
-- Stats endpoint
-- User management (admin only)
+### Phase 1 (26 Jan 2025) - MVP
+- Auth JWT + Google OAuth
+- CRUD Compétiteurs avec attribution auto de catégorie
+- CRUD Catégories et Tatamis
+- Génération d'arbres de combat
+- Saisie des résultats et médailles
 
-### Phase 2 (26 Jan 2025) - Combats & Planification
-- GET /api/combats/suivre: Liste enrichie avec filtres
-- POST /api/combats/planifier/{categorie_id}: Planification horaire
-- GET /api/combats/arbre/{categorie_id}: Arbre complet pour export
-- PUT /api/combats/{combat_id}/statut: Gestion des statuts
-- POST /api/combats/lancer-categorie/{categorie_id}: Lancement par catégorie
-- POST /api/combats/lancer-finales: Lancement des finales
-- POST /api/combats/{combat_id}/suivant: Passage au combat suivant
-- PUT /api/combats/modifier-ordre: Modification de l'ordre
+### Phase 2 (26 Jan 2025) - Combats
+- Vue combats à suivre
+- Planification horaire
+- Export PDF des arbres
 
-### Phase 3 (26 Jan 2025) - Multi-compétition & Pesée
-- Gestion multi-compétitions avec isolation des données
-- Onglet Pesée avec poids officiel et recalcul catégorie
-- Contrôle d'accès basé sur les rôles (admin/coach)
+### Phase 3 (26 Jan 2025) - Multi-compétition
+- Gestion multi-compétitions
+- Onglet Pesée
+- Contrôle d'accès admin/coach
 
-### Phase 4 (5 Feb 2026) - Catégories Officielles & Surclassement
-- **POST /api/categories/seed/{competition_id}**: Création des 126 catégories officielles FFTA/FFDA
-  - Pupilles 1 (6 ans), Pupilles 2 (7 ans)
-  - Benjamins (8-9 ans)
-  - Minimes (10-11 ans)
-  - Cadets (12-13 ans)
-  - Juniors (14-17 ans)
-  - Seniors (18-29 ans)
-  - Masters (30+ ans)
-- **GET /api/categories/for-surclassement/{competition_id}**: Catégories disponibles pour surclassement
-- **GET /api/categories/age-groups**: Liste des groupes d'âge officiels
-- **Surclassement à l'inscription**:
-  - Option checkbox dans le formulaire d'ajout
-  - Dropdown avec catégories d'âge supérieur
-  - Validation du poids par rapport à la catégorie choisie
-  - Badge "Surclassé" affiché dans la liste des compétiteurs
+### Phase 4 (5 Feb 2026) - Catégories & Surclassement
+- 126 catégories officielles FFTA/FFDA
+- Option surclassement à l'inscription
+- Attribution automatique basée sur âge/sexe/poids
 
-### Frontend Pages
-- LoginPage: JWT + Google Auth
-- Dashboard: Stats overview
-- **CompetitionsPage**: Liste, création, sélection de compétitions
-- **CompetiteursPage**: List, add (avec surclassement), edit, delete
-- **PeseePage**: Pesée officielle avec recalcul catégorie
-- **CategoriesPage**: List avec bouton "Catégories officielles" pour seeding
-- TatamisPage: List, create, delete
-- CombatsPage: View brackets, enter results
-- CombatsSuivrePage: Vue temps réel avec filtres et lancement
-- ArbreCombatsPage: Visualisation arbre + Export PDF
-- ResultatsPage: Podium display, medal attribution
-- UsersPage: Role management (admin)
-- HistoriquePage: Modification audit trail
+### Phase 5 (5 Feb 2026) - SIMPLIFICATION & AIRES DE COMBAT ✅
+- **Architecture simplifiée**: Une seule compétition active à la fois
+- **CompetitionContext**: État global de la compétition sélectionnée
+- **SelectionCompetitionPage**: Page d'entrée pour choisir la compétition
+- **Aires de combat**: Remplacement de "tatami" par "aire de combat"
+- **Répartition automatique**: Combats distribués équitablement sur les aires
+- **Vue Arbitre par aire**: Interface dédiée pour saisie rapide des résultats
+- **Finales à la fin**: Toutes les finales regroupées après les combats réguliers
+- **Règle élimination**: Perdant marqué comme éliminé (sauf bronze en demi)
 
-## Prioritized Backlog
+## API Endpoints Clés
 
-### P0 (Critical) - Done
-- ✅ Authentication (JWT + Google)
-- ✅ Bracket generation
-- ✅ Results entry
-- ✅ Medal attribution
-- ✅ Vue combats à suivre
-- ✅ Planification horaire
-- ✅ Export PDF
-- ✅ Multi-compétition
-- ✅ Pesée officielle
-- ✅ Catégories officielles FFTA/FFDA
-- ✅ Surclassement
+### Aires de Combat (Nouveaux)
+- `POST /api/aires-combat` - Créer une aire
+- `GET /api/aires-combat?competition_id=X` - Lister les aires
+- `DELETE /api/aires-combat/{aire_id}` - Supprimer
+- `POST /api/aires-combat/repartir/{competition_id}` - Répartition automatique
 
-### P1 (High Priority)
-- Synchroniser toutes les pages frontend avec competition_id
-- Drag & drop pour réorganiser les combats
-- Timer de combat intégré avec buzzer
+### Arbitre (Nouveaux)
+- `GET /api/arbitre/aire/{aire_id}` - Vue complète (combat en cours, à venir, finales)
+- `POST /api/arbitre/lancer/{combat_id}` - Lancer un combat
+- `POST /api/arbitre/resultat/{combat_id}?vainqueur=rouge/bleu` - Saisir résultat
+- `GET /api/arbitre/prochain/{aire_id}` - Prochain combat
+- `POST /api/arbitre/verifier-finales/{competition_id}` - Vérifier si finales peuvent commencer
 
-### P2 (Medium Priority)
-- Mode hors-ligne amélioré (PWA)
-- Statistiques avancées par compétiteur
-- Notifications en temps réel (WebSocket)
-- Gestion des pauses programmées
-
-### P3 (Nice to have)
-- Multi-langues
-- Dark mode
-- Application mobile native
+### Catégories
+- `POST /api/categories/seed/{competition_id}` - Créer les 126 catégories officielles
+- `GET /api/categories/for-surclassement/{competition_id}?sexe=M&age=10` - Catégories pour surclassement
 
 ## Test Credentials
 - **Admin**: admin2@test.com / admin123
 - **Competition test**: comp_535694c8e8dc (Open de Paris 2026)
+- **Aires de combat**: Aire A, Aire B
 
-## Next Tasks
-1. ~~Implémenter les catégories officielles FFTA/FFDA~~
-2. ~~Implémenter le surclassement~~
-3. Synchroniser le frontend avec competition_id sur toutes les pages
-4. Améliorer l'UX du drag & drop pour réorganisation
-5. Ajouter timer de combat avec contrôles
+## Test Status
+- **Backend**: 100% (14/14 tests passés)
+- **Frontend**: 100% (toutes les pages fonctionnelles)
+- **Test file**: `/app/backend/tests/test_aires_combat_arbitre.py`
+
+## Backlog
+
+### P1 (Haute priorité)
+- [ ] Timer de combat intégré avec contrôles (pause, reprise)
+- [ ] Notifications sonores pour appel des combattants
+- [ ] Améliorer le responsive mobile pour la vue arbitre
+
+### P2 (Moyenne priorité)
+- [ ] Export PDF des résultats et médailles
+- [ ] Statistiques par club
+- [ ] Mode hors-ligne amélioré (PWA)
+
+### P3 (Nice to have)
+- [ ] Multi-langues
+- [ ] Dark mode
+- [ ] Application mobile native
+
+## Architecture Technique
+- **Backend**: FastAPI + MongoDB
+- **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion
+- **Auth**: JWT + Google OAuth (Emergent Auth)
+- **État**: React Context pour compétition active
