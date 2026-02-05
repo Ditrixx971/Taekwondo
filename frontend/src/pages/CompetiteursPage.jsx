@@ -215,7 +215,7 @@ export default function CompetiteursPage() {
             }
           }}>
             <DialogTrigger asChild>
-              <Button className="font-semibold uppercase tracking-wide" data-testid="add-competiteur-btn" disabled={!selectedCompetition}>
+              <Button className="font-semibold uppercase tracking-wide" data-testid="add-competiteur-btn">
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter
               </Button>
