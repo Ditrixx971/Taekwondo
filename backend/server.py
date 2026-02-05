@@ -152,7 +152,8 @@ class Combat(BaseModel):
     combat_id: str = Field(default_factory=lambda: f"cbt_{uuid.uuid4().hex[:12]}")
     competition_id: str  # Lié à une compétition
     categorie_id: str
-    tatami_id: Optional[str] = None
+    aire_id: Optional[str] = None  # Aire de combat assignée
+    tatami_id: Optional[str] = None  # Alias rétrocompatibilité
     tour: str  # quart, demi, finale, bronze
     position: int  # position in bracket
     ordre: int = 0  # ordre d'exécution global
@@ -164,6 +165,7 @@ class Combat(BaseModel):
     type_victoire: Optional[str] = None  # normal, forfait, abandon, disqualification, non_dispute
     statut: str = "a_venir"  # a_venir, en_cours, termine, non_dispute
     termine: bool = False
+    est_finale: bool = False  # Si c'est un combat de finale (à faire en dernier)
     heure_debut: Optional[str] = None  # ISO format
     duree_minutes: int = 6  # durée estimée en minutes
     est_pause: bool = False  # si c'est un créneau de pause
