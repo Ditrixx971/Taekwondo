@@ -95,6 +95,8 @@ class CompetiteurCreate(BaseModel):
     sexe: str
     poids_declare: float
     club: str
+    surclasse: bool = False  # Si le compétiteur est surclassé
+    categorie_surclasse_id: Optional[str] = None  # Catégorie choisie si surclassé
 
 class PeseeUpdate(BaseModel):
     poids_officiel: float
