@@ -322,8 +322,6 @@ export default function ArbreCombatPage() {
                       <MatchBox 
                         key={combat.combat_id}
                         combat={combat}
-                        rouge={competiteurs[combat.rouge_id]}
-                        bleu={competiteurs[combat.bleu_id]}
                         categorie={categorieNom}
                       />
                     ))}
@@ -348,8 +346,6 @@ export default function ArbreCombatPage() {
                       <MatchBox 
                         key={combat.combat_id}
                         combat={combat}
-                        rouge={competiteurs[combat.rouge_id]}
-                        bleu={competiteurs[combat.bleu_id]}
                         categorie={categorieNom}
                       />
                     ))}
@@ -377,8 +373,6 @@ export default function ArbreCombatPage() {
                         </Badge>
                         <MatchBox 
                           combat={finale}
-                          rouge={competiteurs[finale.rouge_id]}
-                          bleu={competiteurs[finale.bleu_id]}
                           categorie={categorieNom}
                         />
                       </div>
@@ -390,8 +384,6 @@ export default function ArbreCombatPage() {
                         </Badge>
                         <MatchBox 
                           combat={bronze}
-                          rouge={competiteurs[bronze.rouge_id]}
-                          bleu={competiteurs[bronze.bleu_id]}
                           categorie={categorieNom}
                         />
                       </div>
