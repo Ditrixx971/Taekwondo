@@ -29,6 +29,9 @@ const CombattantBox = ({ combattant, couleur, isWinner, onClick }) => {
   
   const borderColor = isWinner ? "ring-2 ring-yellow-400 ring-offset-2" : "";
   
+  // combattant peut être { nom: "...", club: "..." } directement de l'API
+  const hasData = combattant && combattant.nom && combattant.nom !== "À déterminer";
+  
   return (
     <div 
       className={`${bgColor} ${borderColor} text-white p-3 rounded-lg min-w-[180px] cursor-pointer hover:shadow-lg transition-all`}
@@ -40,10 +43,10 @@ const CombattantBox = ({ combattant, couleur, isWinner, onClick }) => {
         </Badge>
         {isWinner && <Trophy className="h-4 w-4 text-yellow-300" />}
       </div>
-      {combattant ? (
+      {hasData ? (
         <div className="mt-2">
           <p className="font-bold text-sm leading-tight">
-            {combattant.prenom} {combattant.nom}
+            {combattant.nom}
           </p>
           <p className="text-xs opacity-80">{combattant.club}</p>
         </div>
@@ -57,8 +60,12 @@ const CombattantBox = ({ combattant, couleur, isWinner, onClick }) => {
 };
 
 // Composant pour un match dans le bracket
-const MatchBox = ({ combat, rouge, bleu, onSelectWinner, categorie }) => {
+const MatchBox = ({ combat, categorie }) => {
   const isTermine = combat.termine;
+  
+  // Les données rouge/bleu sont directement dans combat (de l'API)
+  const rouge = combat.rouge;
+  const bleu = combat.bleu;
   
   return (
     <div className="relative">
@@ -83,8 +90,7 @@ const MatchBox = ({ combat, rouge, bleu, onSelectWinner, categorie }) => {
         <CombattantBox 
           combattant={rouge} 
           couleur="rouge" 
-          isWinner={isTermine && combat.vainqueur_id === rouge?.competiteur_id}
-          onClick={() => !isTermine && onSelectWinner && onSelectWinner(combat, "rouge")}
+          isWinner={isTermine && combat.vainqueur_id === combat.rouge_id}
         />
         
         <div className="text-center text-xs font-bold text-slate-400 py-1">VS</div>
@@ -92,8 +98,7 @@ const MatchBox = ({ combat, rouge, bleu, onSelectWinner, categorie }) => {
         <CombattantBox 
           combattant={bleu} 
           couleur="bleu" 
-          isWinner={isTermine && combat.vainqueur_id === bleu?.competiteur_id}
-          onClick={() => !isTermine && onSelectWinner && onSelectWinner(combat, "bleu")}
+          isWinner={isTermine && combat.vainqueur_id === combat.bleu_id}
         />
       </div>
     </div>
