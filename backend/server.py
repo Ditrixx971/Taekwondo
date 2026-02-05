@@ -738,7 +738,7 @@ async def list_categories(competition_id: Optional[str] = None, user: User = Dep
     if competition_id:
         query["competition_id"] = competition_id
     
-    categories = await db.categories.find(query, {"_id": 0}).to_list(100)
+    categories = await db.categories.find(query, {"_id": 0}).to_list(500)
     return categories
 
 @api_router.post("/categories")
