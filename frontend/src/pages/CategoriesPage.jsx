@@ -63,7 +63,7 @@ export default function CategoriesPage() {
     setSeeding(true);
     try {
       const response = await axios.post(
-        `${API}/categories/seed/${selectedCompetition}`,
+        `${API}/categories/seed/${competition.competition_id}`,
         {},
         { withCredentials: true }
       );
@@ -81,7 +81,7 @@ export default function CategoriesPage() {
     try {
       const payload = {
         ...form,
-        competition_id: selectedCompetition,
+        competition_id: competition.competition_id,
         age_min: parseInt(form.age_min),
         age_max: parseInt(form.age_max),
         poids_min: parseFloat(form.poids_min),
