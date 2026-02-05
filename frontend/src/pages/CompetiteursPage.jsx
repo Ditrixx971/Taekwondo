@@ -276,15 +276,20 @@ export default function CompetiteursPage() {
                     id="date_naissance"
                     type="date"
                     value={form.date_naissance}
-                    onChange={(e) => setForm({ ...form, date_naissance: e.target.value })}
+                    onChange={(e) => setForm({ ...form, date_naissance: e.target.value, categorie_surclasse_id: "" })}
                     required
                     data-testid="competiteur-date-input"
                   />
+                  {form.date_naissance && (
+                    <p className="text-xs text-slate-500">
+                      Âge: {calculateAge(form.date_naissance)} ans
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sexe">Sexe</Label>
-                    <Select value={form.sexe} onValueChange={(val) => setForm({ ...form, sexe: val })}>
+                    <Select value={form.sexe} onValueChange={(val) => setForm({ ...form, sexe: val, categorie_surclasse_id: "" })}>
                       <SelectTrigger data-testid="competiteur-sexe-select">
                         <SelectValue />
                       </SelectTrigger>
@@ -317,6 +322,68 @@ export default function CompetiteursPage() {
                     data-testid="competiteur-club-input"
                   />
                 </div>
+
+                {/* Option Surclassement */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50/50">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="surclasse"
+                      checked={form.surclasse}
+                      onCheckedChange={(checked) => setForm({ 
+                        ...form, 
+                        surclasse: checked, 
+                        categorie_surclasse_id: "" 
+                      })}
+                      data-testid="surclasse-checkbox"
+                    />
+                    <Label 
+                      htmlFor="surclasse" 
+                      className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                    >
+                      <ArrowUpCircle className="h-4 w-4 text-blue-500" />
+                      Surclassement (catégorie d'âge supérieure)
+                    </Label>
+                  </div>
+                  
+                  {form.surclasse && (
+                    <div className="space-y-2 pl-6">
+                      {!form.date_naissance ? (
+                        <p className="text-xs text-amber-600">
+                          Veuillez d'abord renseigner la date de naissance
+                        </p>
+                      ) : categoriesSurclassement.length === 0 ? (
+                        <p className="text-xs text-slate-500">
+                          Chargement des catégories disponibles...
+                        </p>
+                      ) : (
+                        <>
+                          <Label className="text-xs text-slate-500">
+                            Catégorie de surclassement
+                          </Label>
+                          <Select 
+                            value={form.categorie_surclasse_id} 
+                            onValueChange={(val) => setForm({ ...form, categorie_surclasse_id: val })}
+                          >
+                            <SelectTrigger data-testid="surclasse-categorie-select">
+                              <SelectValue placeholder="Choisir une catégorie" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {categoriesSurclassement.map(cat => (
+                                <SelectItem key={cat.categorie_id} value={cat.categorie_id}>
+                                  {cat.nom}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-blue-600">
+                            Le compétiteur sera inscrit dans cette catégorie supérieure.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Annuler
