@@ -35,6 +35,7 @@ export default function CompetiteursPage() {
   const [selectedCompetition, setSelectedCompetition] = useState("");
   const [competiteurs, setCompetiteurs] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [categoriesSurclassement, setCategoriesSurclassement] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -51,6 +52,15 @@ export default function CompetiteursPage() {
       fetchData();
     }
   }, [selectedCompetition]);
+
+  // Charger les catégories de surclassement quand les données du form changent
+  useEffect(() => {
+    if (form.surclasse && form.date_naissance && form.sexe && selectedCompetition) {
+      fetchCategoriesSurclassement();
+    } else {
+      setCategoriesSurclassement([]);
+    }
+  }, [form.surclasse, form.date_naissance, form.sexe, selectedCompetition]);
 
   const fetchCompetitions = async () => {
     try {
@@ -81,6 +91,41 @@ export default function CompetiteursPage() {
     } catch (error) {
       toast.error("Erreur lors du chargement des données");
     }
+  };
+
+  const fetchCategoriesSurclassement = async () => {
+    if (!form.date_naissance) return;
+    
+    try {
+      // Calculer l'âge
+      const birthDate = new Date(form.date_naissance);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      const response = await axios.get(
+        `${API}/categories/for-surclassement/${selectedCompetition}?sexe=${form.sexe}&age=${age}`,
+        { withCredentials: true }
+      );
+      setCategoriesSurclassement(response.data);
+    } catch (error) {
+      console.error("Erreur chargement catégories surclassement:", error);
+    }
+  };
+
+  const calculateAge = (dateNaissance) => {
+    if (!dateNaissance) return null;
+    const birthDate = new Date(dateNaissance);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
   };
 
   const handleSubmit = async (e) => {
