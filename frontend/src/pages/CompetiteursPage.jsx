@@ -134,8 +134,15 @@ export default function CompetiteursPage() {
       const payload = { 
         ...form, 
         poids_declare: parseFloat(form.poids_declare),
-        competition_id: selectedCompetition
+        competition_id: selectedCompetition,
+        surclasse: form.surclasse,
+        categorie_surclasse_id: form.surclasse ? form.categorie_surclasse_id : null
       };
+      
+      if (form.surclasse && !form.categorie_surclasse_id) {
+        toast.error("Veuillez sélectionner une catégorie de surclassement");
+        return;
+      }
       
       if (editingId) {
         await axios.put(`${API}/competiteurs/${editingId}`, payload, { withCredentials: true });
@@ -161,7 +168,9 @@ export default function CompetiteursPage() {
       date_naissance: comp.date_naissance,
       sexe: comp.sexe,
       poids_declare: comp.poids_declare?.toString() || "",
-      club: comp.club
+      club: comp.club,
+      surclasse: comp.surclasse || false,
+      categorie_surclasse_id: comp.surclasse ? comp.categorie_id : ""
     });
     setEditingId(comp.competiteur_id);
     setDialogOpen(true);
