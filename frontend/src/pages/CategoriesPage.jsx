@@ -158,112 +158,162 @@ export default function CategoriesPage() {
             <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
               Catégories
             </h1>
-            <p className="text-slate-500 mt-1">{categories.length} catégorie(s) créée(s)</p>
+            <p className="text-slate-500 mt-1">{categories.length} catégorie(s)</p>
           </div>
           
-          {isAdmin && (
-            <Dialog open={dialogOpen} onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) setForm(initialForm);
-            }}>
-              <DialogTrigger asChild>
-                <Button className="font-semibold uppercase tracking-wide" data-testid="add-categorie-btn">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nouvelle catégorie
+          <div className="flex gap-2">
+            {isAdmin && selectedCompetition && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSeedCategories}
+                  disabled={seeding}
+                  data-testid="seed-categories-btn"
+                >
+                  {seeding ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Catégories officielles
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="font-bold uppercase tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
-                    Créer une catégorie
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nom">Nom de la catégorie</Label>
-                    <Input
-                      id="nom"
-                      placeholder="Ex: Cadets -55kg Masculin"
-                      value={form.nom}
-                      onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                      required
-                      data-testid="categorie-nom-input"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="age_min">Âge minimum</Label>
-                      <Input
-                        id="age_min"
-                        type="number"
-                        value={form.age_min}
-                        onChange={(e) => setForm({ ...form, age_min: e.target.value })}
-                        required
-                        data-testid="categorie-age-min-input"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="age_max">Âge maximum</Label>
-                      <Input
-                        id="age_max"
-                        type="number"
-                        value={form.age_max}
-                        onChange={(e) => setForm({ ...form, age_max: e.target.value })}
-                        required
-                        data-testid="categorie-age-max-input"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sexe">Sexe</Label>
-                    <Select value={form.sexe} onValueChange={(val) => setForm({ ...form, sexe: val })}>
-                      <SelectTrigger data-testid="categorie-sexe-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="M">Masculin</SelectItem>
-                        <SelectItem value="F">Féminin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="poids_min">Poids min (kg)</Label>
-                      <Input
-                        id="poids_min"
-                        type="number"
-                        step="0.1"
-                        value={form.poids_min}
-                        onChange={(e) => setForm({ ...form, poids_min: e.target.value })}
-                        required
-                        data-testid="categorie-poids-min-input"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="poids_max">Poids max (kg)</Label>
-                      <Input
-                        id="poids_max"
-                        type="number"
-                        step="0.1"
-                        value={form.poids_max}
-                        onChange={(e) => setForm({ ...form, poids_max: e.target.value })}
-                        required
-                        data-testid="categorie-poids-max-input"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                      Annuler
+                
+                <Dialog open={dialogOpen} onOpenChange={(open) => {
+                  setDialogOpen(open);
+                  if (!open) setForm(initialForm);
+                }}>
+                  <DialogTrigger asChild>
+                    <Button className="font-semibold uppercase tracking-wide" data-testid="add-categorie-btn">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Nouvelle catégorie
                     </Button>
-                    <Button type="submit" data-testid="categorie-submit-btn">
-                      Créer
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="font-bold uppercase tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
+                        Créer une catégorie
+                      </DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="nom">Nom de la catégorie</Label>
+                        <Input
+                          id="nom"
+                          placeholder="Ex: Cadets -55kg Masculin"
+                          value={form.nom}
+                          onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                          required
+                          data-testid="categorie-nom-input"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="age_min">Âge minimum</Label>
+                          <Input
+                            id="age_min"
+                            type="number"
+                            value={form.age_min}
+                            onChange={(e) => setForm({ ...form, age_min: e.target.value })}
+                            required
+                            data-testid="categorie-age-min-input"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="age_max">Âge maximum</Label>
+                          <Input
+                            id="age_max"
+                            type="number"
+                            value={form.age_max}
+                            onChange={(e) => setForm({ ...form, age_max: e.target.value })}
+                            required
+                            data-testid="categorie-age-max-input"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sexe">Sexe</Label>
+                        <Select value={form.sexe} onValueChange={(val) => setForm({ ...form, sexe: val })}>
+                          <SelectTrigger data-testid="categorie-sexe-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="M">Masculin</SelectItem>
+                            <SelectItem value="F">Féminin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="poids_min">Poids min (kg)</Label>
+                          <Input
+                            id="poids_min"
+                            type="number"
+                            step="0.1"
+                            value={form.poids_min}
+                            onChange={(e) => setForm({ ...form, poids_min: e.target.value })}
+                            required
+                            data-testid="categorie-poids-min-input"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="poids_max">Poids max (kg)</Label>
+                          <Input
+                            id="poids_max"
+                            type="number"
+                            step="0.1"
+                            value={form.poids_max}
+                            onChange={(e) => setForm({ ...form, poids_max: e.target.value })}
+                            required
+                            data-testid="categorie-poids-max-input"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-4">
+                        <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                          Annuler
+                        </Button>
+                        <Button type="submit" data-testid="categorie-submit-btn">
+                          Créer
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Sélection compétition */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <Card className="border-slate-200">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 max-w-md">
+                  <Label className="text-xs text-slate-500 mb-1 block">Compétition</Label>
+                  <Select value={selectedCompetition} onValueChange={(val) => {
+                    setSelectedCompetition(val);
+                    localStorage.setItem('selectedCompetition', val);
+                  }}>
+                    <SelectTrigger data-testid="select-competition-categories">
+                      <SelectValue placeholder="Sélectionner une compétition" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {competitions.map(comp => (
+                        <SelectItem key={comp.competition_id} value={comp.competition_id}>
+                          {comp.nom} - {new Date(comp.date).toLocaleDateString('fr-FR')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Table */}
