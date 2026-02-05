@@ -122,10 +122,23 @@ class CategorieCreate(BaseModel):
     poids_min: float
     poids_max: float
 
+class AireCombat(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    aire_id: str = Field(default_factory=lambda: f"aire_{uuid.uuid4().hex[:12]}")
+    competition_id: str  # Lié à une compétition
+    nom: str
+    numero: int
+
+class AireCombatCreate(BaseModel):
+    competition_id: str
+    nom: str
+    numero: int
+
+# Garder Tatami pour rétrocompatibilité (alias)
 class Tatami(BaseModel):
     model_config = ConfigDict(extra="ignore")
     tatami_id: str = Field(default_factory=lambda: f"tat_{uuid.uuid4().hex[:12]}")
-    competition_id: str  # Lié à une compétition
+    competition_id: str
     nom: str
     numero: int
 
