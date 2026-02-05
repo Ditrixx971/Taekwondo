@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
-import { useAuth } from "../App";
+import { useAuth, useCompetition } from "../App";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -28,8 +28,7 @@ const initialForm = {
 
 export default function CategoriesPage() {
   const { isAdmin } = useAuth();
-  const [competitions, setCompetitions] = useState([]);
-  const [selectedCompetition, setSelectedCompetition] = useState("");
+  const { competition } = useCompetition();
   const [categories, setCategories] = useState([]);
   const [competiteurs, setCompetiteurs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,43 +37,23 @@ export default function CategoriesPage() {
   const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
-    fetchCompetitions();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCompetition) {
+    if (competition) {
       fetchData();
     }
-  }, [selectedCompetition]);
-
-  const fetchCompetitions = async () => {
-    try {
-      const response = await axios.get(`${API}/competitions`, { withCredentials: true });
-      setCompetitions(response.data);
-      
-      const saved = localStorage.getItem('selectedCompetition');
-      if (saved && response.data.find(c => c.competition_id === saved)) {
-        setSelectedCompetition(saved);
-      } else if (response.data.length > 0) {
-        setSelectedCompetition(response.data[0].competition_id);
-      }
-    } catch (error) {
-      toast.error("Erreur lors du chargement des compétitions");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [competition]);
 
   const fetchData = async () => {
     try {
       const [catRes, compRes] = await Promise.all([
-        axios.get(`${API}/categories?competition_id=${selectedCompetition}`, { withCredentials: true }),
-        axios.get(`${API}/competiteurs?competition_id=${selectedCompetition}`, { withCredentials: true })
+        axios.get(`${API}/categories?competition_id=${competition.competition_id}`, { withCredentials: true }),
+        axios.get(`${API}/competiteurs?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
       setCategories(catRes.data);
       setCompetiteurs(compRes.data);
     } catch (error) {
       toast.error("Erreur lors du chargement des données");
+    } finally {
+      setLoading(false);
     }
   };
 
