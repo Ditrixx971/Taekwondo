@@ -43,57 +43,37 @@ export default function CompetiteursPage() {
   const [filterCategorie, setFilterCategorie] = useState("all");
 
   useEffect(() => {
-    fetchCompetitions();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCompetition) {
+    if (competition) {
       fetchData();
     }
-  }, [selectedCompetition]);
+  }, [competition]);
 
   // Charger les catégories de surclassement quand les données du form changent
   useEffect(() => {
-    if (form.surclasse && form.date_naissance && form.sexe && selectedCompetition) {
+    if (form.surclasse && form.date_naissance && form.sexe && competition) {
       fetchCategoriesSurclassement();
     } else {
       setCategoriesSurclassement([]);
     }
-  }, [form.surclasse, form.date_naissance, form.sexe, selectedCompetition]);
-
-  const fetchCompetitions = async () => {
-    try {
-      const response = await axios.get(`${API}/competitions`, { withCredentials: true });
-      setCompetitions(response.data);
-      
-      const saved = localStorage.getItem('selectedCompetition');
-      if (saved && response.data.find(c => c.competition_id === saved)) {
-        setSelectedCompetition(saved);
-      } else if (response.data.length > 0) {
-        setSelectedCompetition(response.data[0].competition_id);
-      }
-    } catch (error) {
-      toast.error("Erreur lors du chargement des compétitions");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [form.surclasse, form.date_naissance, form.sexe, competition]);
 
   const fetchData = async () => {
     try {
       const [compRes, catRes] = await Promise.all([
-        axios.get(`${API}/competiteurs?competition_id=${selectedCompetition}`, { withCredentials: true }),
-        axios.get(`${API}/categories?competition_id=${selectedCompetition}`, { withCredentials: true })
+        axios.get(`${API}/competiteurs?competition_id=${competition.competition_id}`, { withCredentials: true }),
+        axios.get(`${API}/categories?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
       setCompetiteurs(compRes.data);
       setCategories(catRes.data);
     } catch (error) {
       toast.error("Erreur lors du chargement des données");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchCategoriesSurclassement = async () => {
-    if (!form.date_naissance) return;
+    if (!form.date_naissance || !competition) return;
     
     try {
       // Calculer l'âge
@@ -106,7 +86,7 @@ export default function CompetiteursPage() {
       }
       
       const response = await axios.get(
-        `${API}/categories/for-surclassement/${selectedCompetition}?sexe=${form.sexe}&age=${age}`,
+        `${API}/categories/for-surclassement/${competition.competition_id}?sexe=${form.sexe}&age=${age}`,
         { withCredentials: true }
       );
       setCategoriesSurclassement(response.data);
