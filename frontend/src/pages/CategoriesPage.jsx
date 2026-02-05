@@ -141,7 +141,7 @@ export default function CategoriesPage() {
           </div>
           
           <div className="flex gap-2">
-            {isAdmin && selectedCompetition && (
+            {isAdmin && competition && (
               <>
                 <Button 
                   variant="outline" 
