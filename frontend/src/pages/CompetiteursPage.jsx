@@ -113,7 +113,7 @@ export default function CompetiteursPage() {
       const payload = { 
         ...form, 
         poids_declare: parseFloat(form.poids_declare),
-        competition_id: selectedCompetition,
+        competition_id: competition.competition_id,
         surclasse: form.surclasse,
         categorie_surclasse_id: form.surclasse ? form.categorie_surclasse_id : null
       };
