@@ -42,6 +42,7 @@ const navItems = [
 ];
 
 const adminItems = [
+  { path: "/coaches-competition", label: "Coachs autorisés", icon: UserCheck },
   { path: "/users", label: "Utilisateurs", icon: Users },
 ];
 
