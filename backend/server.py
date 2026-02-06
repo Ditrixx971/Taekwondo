@@ -1376,7 +1376,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     await db.combats.delete_many({"categorie_id": categorie_id})
     await db.medailles.delete_many({"categorie_id": categorie_id})
     
-    # Récupérer les compétiteurs de la catégorie (uniquement ceux pesés pour une compétition officielle)
+    # Récupérer les compétiteurs de la catégorie (uniquement ceux non disqualifiés)
     competiteurs = await db.competiteurs.find(
         {"categorie_id": categorie_id, "disqualifie": False},
         {"_id": 0}
@@ -1385,23 +1385,87 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     if len(competiteurs) < 2:
         raise HTTPException(status_code=400, detail="Il faut au moins 2 compétiteurs pour générer un tableau")
     
-    # Mélanger pour tirage au sort
+    # Mélanger pour tirage au sort équitable
     random.shuffle(competiteurs)
     
     combats_created = []
     n = len(competiteurs)
+    
+    # Calculer la taille de l'arbre (puissance de 2 supérieure ou égale)
+    def next_power_of_2(x):
+        return 1 if x == 0 else 2**(x - 1).bit_length()
+    
+    bracket_size = next_power_of_2(n)
+    num_byes = bracket_size - n
     
     async def insert_combat(combat_obj):
         """Helper to insert combat and return clean dict without _id"""
         combat_dict = combat_obj.model_dump()
         combat_dict["created_at"] = combat_dict["created_at"].isoformat()
         await db.combats.insert_one(combat_dict)
-        # Remove _id added by MongoDB before returning
         combat_dict.pop("_id", None)
         return combat_dict
     
+    # Fonction pour créer l'arbre de façon récursive
+    async def create_bracket(participants, tour_name):
+        """
+        Crée les combats pour un niveau de l'arbre.
+        participants: liste de {"competiteur_id": ...} ou None pour BYE
+        """
+        if len(participants) == 1:
+            return participants[0]
+        
+        combats_tour = []
+        winners = []
+        
+        for i in range(0, len(participants), 2):
+            p1 = participants[i]
+            p2 = participants[i + 1] if i + 1 < len(participants) else None
+            
+            p1_id = p1.get("competiteur_id") if p1 else None
+            p2_id = p2.get("competiteur_id") if p2 else None
+            
+            # Déterminer le nom du tour en fonction de la taille
+            if len(participants) == 2:
+                actual_tour = "finale"
+            elif len(participants) <= 4:
+                actual_tour = "demi"
+            elif len(participants) <= 8:
+                actual_tour = "quart"
+            elif len(participants) <= 16:
+                actual_tour = "huitieme"
+            else:
+                actual_tour = f"tour_{len(participants)}"
+            
+            # Si un des deux est un BYE, l'autre passe directement
+            if p1_id is None:
+                winners.append(p2)
+                continue
+            elif p2_id is None:
+                winners.append(p1)
+                continue
+            
+            # Créer le combat
+            combat = Combat(
+                competition_id=competition_id,
+                categorie_id=categorie_id,
+                tatami_id=tatami_id,
+                tour=actual_tour,
+                position=len(combats_tour) + 1,
+                rouge_id=p1_id,
+                bleu_id=p2_id
+            )
+            combat_dict = await insert_combat(combat)
+            combats_created.append(combat_dict)
+            combats_tour.append(combat_dict)
+            
+            # Placeholder pour le vainqueur (sera rempli après le combat)
+            winners.append({"placeholder": combat_dict["combat_id"]})
+        
+        return winners
+    
+    # Cas simple: 2 combattants = finale directe
     if n == 2:
-        # Finale directe
         combat = Combat(
             competition_id=competition_id,
             categorie_id=categorie_id,
@@ -1415,8 +1479,8 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         combats_created.append(combat_dict)
         
     elif n == 3:
-        # Cas spécial: 2 en demi, 1 direct en finale
-        # Demi-finale
+        # Cas spécial: 2 en demi (1 avec BYE), puis finale
+        # Combat préliminaire: compétiteur 0 vs compétiteur 1
         demi = Combat(
             competition_id=competition_id,
             categorie_id=categorie_id,
@@ -1429,21 +1493,21 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         demi_dict = await insert_combat(demi)
         combats_created.append(demi_dict)
         
-        # Finale (vainqueur demi vs 3ème)
+        # Finale: vainqueur demi vs compétiteur 2 (qui a un BYE)
         finale = Combat(
             competition_id=competition_id,
             categorie_id=categorie_id,
             tatami_id=tatami_id,
             tour="finale",
             position=1,
-            rouge_id=None,  # Sera rempli après la demi
-            bleu_id=competiteurs[2]["competiteur_id"]
+            rouge_id=None,  # Vainqueur de la demi
+            bleu_id=competiteurs[2]["competiteur_id"]  # BYE direct en finale
         )
         finale_dict = await insert_combat(finale)
         combats_created.append(finale_dict)
         
     elif n == 4:
-        # 2 demi-finales + 1 finale + match bronze
+        # 2 demi-finales + finale + bronze
         for i in range(2):
             demi = Combat(
                 competition_id=competition_id,
@@ -1483,10 +1547,156 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         bronze_dict = await insert_combat(bronze)
         combats_created.append(bronze_dict)
         
+    elif n <= 8:
+        # 5, 6, 7 ou 8 combattants: quarts + demis + finale + bronze
+        # Avec BYE pour les places vides
+        
+        # Créer la liste avec BYE pour arriver à 8
+        participants = [c for c in competiteurs]
+        num_byes = 8 - n
+        
+        # Répartir les BYE équitablement (les mieux classés ont les BYE)
+        # Les BYE sont ajoutés à des positions stratégiques
+        padded = []
+        bye_positions = [1, 3, 5, 7][:num_byes]  # Positions des BYE (1-indexed, positions impaires)
+        
+        comp_idx = 0
+        for i in range(8):
+            if i in bye_positions:
+                padded.append(None)  # BYE
+            else:
+                if comp_idx < len(participants):
+                    padded.append(participants[comp_idx])
+                    comp_idx += 1
+                else:
+                    padded.append(None)
+        
+        # Quarts de finale (avec gestion des BYE)
+        quart_winners = []
+        for i in range(4):
+            p1 = padded[i*2]
+            p2 = padded[i*2 + 1]
+            
+            p1_id = p1["competiteur_id"] if p1 else None
+            p2_id = p2["competiteur_id"] if p2 else None
+            
+            # Si BYE, le combattant passe directement
+            if p1_id is None and p2_id:
+                quart_winners.append(p2_id)
+                continue
+            elif p2_id is None and p1_id:
+                quart_winners.append(p1_id)
+                continue
+            elif p1_id is None and p2_id is None:
+                quart_winners.append(None)
+                continue
+            
+            # Combat réel
+            quart = Combat(
+                competition_id=competition_id,
+                categorie_id=categorie_id,
+                tatami_id=tatami_id,
+                tour="quart",
+                position=i + 1,
+                rouge_id=p1_id,
+                bleu_id=p2_id
+            )
+            quart_dict = await insert_combat(quart)
+            combats_created.append(quart_dict)
+            quart_winners.append(None)  # Placeholder
+        
+        # Demi-finales
+        for i in range(2):
+            demi = Combat(
+                competition_id=competition_id,
+                categorie_id=categorie_id,
+                tatami_id=tatami_id,
+                tour="demi",
+                position=i + 1,
+                rouge_id=quart_winners[i*2] if isinstance(quart_winners[i*2], str) else None,
+                bleu_id=quart_winners[i*2 + 1] if isinstance(quart_winners[i*2 + 1], str) else None
+            )
+            demi_dict = await insert_combat(demi)
+            combats_created.append(demi_dict)
+        
+        # Finale
+        finale = Combat(
+            competition_id=competition_id,
+            categorie_id=categorie_id,
+            tatami_id=tatami_id,
+            tour="finale",
+            position=1,
+            rouge_id=None,
+            bleu_id=None
+        )
+        finale_dict = await insert_combat(finale)
+        combats_created.append(finale_dict)
+        
+        # Match bronze
+        bronze = Combat(
+            competition_id=competition_id,
+            categorie_id=categorie_id,
+            tatami_id=tatami_id,
+            tour="bronze",
+            position=1,
+            rouge_id=None,
+            bleu_id=None
+        )
+        bronze_dict = await insert_combat(bronze)
+        combats_created.append(bronze_dict)
+        
     else:
-        # Plus de 4: quarts + demis + finale + bronze
-        # Simplification: on prend les 8 premiers
-        competiteurs = competiteurs[:8]
+        # Plus de 8: on limite à 16 pour simplifier
+        competiteurs = competiteurs[:16]
+        n = len(competiteurs)
+        
+        # Créer la liste avec BYE pour arriver à 16
+        num_byes = 16 - n
+        padded = []
+        bye_positions = list(range(1, 16, 2))[:num_byes]  # Positions impaires
+        
+        comp_idx = 0
+        for i in range(16):
+            if i in bye_positions:
+                padded.append(None)
+            else:
+                if comp_idx < len(competiteurs):
+                    padded.append(competiteurs[comp_idx])
+                    comp_idx += 1
+                else:
+                    padded.append(None)
+        
+        # Huitièmes de finale
+        huitieme_winners = []
+        for i in range(8):
+            p1 = padded[i*2]
+            p2 = padded[i*2 + 1]
+            
+            p1_id = p1["competiteur_id"] if p1 else None
+            p2_id = p2["competiteur_id"] if p2 else None
+            
+            if p1_id is None and p2_id:
+                huitieme_winners.append(p2_id)
+                continue
+            elif p2_id is None and p1_id:
+                huitieme_winners.append(p1_id)
+                continue
+            elif p1_id is None and p2_id is None:
+                huitieme_winners.append(None)
+                continue
+            
+            huitieme = Combat(
+                competition_id=competition_id,
+                categorie_id=categorie_id,
+                tatami_id=tatami_id,
+                tour="huitieme",
+                position=i + 1,
+                rouge_id=p1_id,
+                bleu_id=p2_id
+            )
+            huitieme_dict = await insert_combat(huitieme)
+            combats_created.append(huitieme_dict)
+            huitieme_winners.append(None)
         
         # Quarts de finale
         for i in range(4):
@@ -1496,8 +1706,8 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 tatami_id=tatami_id,
                 tour="quart",
                 position=i + 1,
-                rouge_id=competiteurs[i*2]["competiteur_id"] if i*2 < len(competiteurs) else None,
-                bleu_id=competiteurs[i*2 + 1]["competiteur_id"] if i*2 + 1 < len(competiteurs) else None
+                rouge_id=huitieme_winners[i*2] if isinstance(huitieme_winners[i*2], str) else None,
+                bleu_id=huitieme_winners[i*2 + 1] if isinstance(huitieme_winners[i*2 + 1], str) else None
             )
             quart_dict = await insert_combat(quart)
             combats_created.append(quart_dict)
@@ -1542,7 +1752,18 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         bronze_dict = await insert_combat(bronze)
         combats_created.append(bronze_dict)
     
-    return {"message": f"Tableau généré avec {len(combats_created)} combats", "combats": combats_created}
+    # Mettre à jour le nombre de combattants dans la catégorie
+    await db.categories.update_one(
+        {"categorie_id": categorie_id},
+        {"$set": {"nb_combattants": n, "arbre_genere": True}}
+    )
+    
+    return {
+        "message": f"Tableau généré avec {len(combats_created)} combats pour {n} combattants",
+        "combats": combats_created,
+        "nb_combattants": n,
+        "nb_byes": bracket_size - n
+    }
 
 @api_router.put("/combats/{combat_id}/resultat")
 async def saisir_resultat(combat_id: str, data: CombatResultat, user: User = Depends(require_admin)):
