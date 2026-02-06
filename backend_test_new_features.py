@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class TaekwondoNewFeaturesAPITester:
-    def __init__(self, base_url="https://martial-tracker-17.preview.emergentagent.com"):
+    def __init__(self, base_url="https://taekwondo-manager-4.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.session = requests.Session()
