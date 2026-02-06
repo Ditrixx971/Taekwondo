@@ -468,8 +468,8 @@ export default function ArbitreMultiPage() {
           <Card className="border-slate-200 bg-slate-50">
             <CardContent className="p-4">
               <p className="text-sm text-slate-600 mb-2">
-                <strong>Conseil :</strong> Pour une vue plein écran dédiée à une seule aire (idéale pour l'arbitre), 
-                accédez à la page individuelle depuis "Aires de combat".
+                <strong>Conseil :</strong> Pour une vue plein écran dédiée à une seule aire (idéale pour l&apos;arbitre), 
+                accédez à la page individuelle depuis &quot;Aires de combat&quot;.
               </p>
               <Button variant="outline" size="sm" onClick={() => navigate("/aires-combat")}>
                 <Columns className="h-4 w-4 mr-2" />
