@@ -1357,7 +1357,14 @@ async def get_combat(combat_id: str, user: User = Depends(get_current_user)):
 
 @api_router.post("/combats/generer/{categorie_id}")
 async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, user: User = Depends(require_admin)):
-    """Génère l'arbre des combats pour une catégorie"""
+    """
+    Génère l'arbre des combats pour une catégorie.
+    
+    Logique:
+    - Nombre pair: tous les combattants au même niveau
+    - Nombre impair: création de BYE pour équilibrer l'arbre
+    - L'arbre est ajusté à une puissance de 2 (2, 4, 8, 16...)
+    """
     # Récupérer la catégorie pour obtenir le competition_id
     categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
     if not categorie:
