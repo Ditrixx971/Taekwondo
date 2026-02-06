@@ -306,19 +306,114 @@ export default function CompetiteursPage() {
             <p className="text-slate-500 mt-1">{competiteurs.length} compétiteur(s) enregistré(s)</p>
           </div>
           
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              setForm(initialForm);
-              setEditingId(null);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="font-semibold uppercase tracking-wide" data-testid="add-competiteur-btn">
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2 flex-wrap">
+            {/* Boutons Import/Export */}
+            <Button 
+              variant="outline" 
+              onClick={handleExportExcel}
+              disabled={competiteurs.length === 0}
+              data-testid="export-excel-btn"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exporter Excel
+            </Button>
+            
+            <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="import-excel-btn">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importer Excel
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5" />
+                    Importer des compétiteurs
+                  </DialogTitle>
+                  <DialogDescription>
+                    Importez une liste de compétiteurs depuis un fichier Excel (.xlsx)
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <div className="flex items-center gap-4">
+                    <Button variant="outline" onClick={handleDownloadTemplate}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Télécharger le template
+                    </Button>
+                    <span className="text-sm text-slate-500">Format requis</span>
+                  </div>
+                  
+                  <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleImportExcel}
+                      ref={fileInputRef}
+                      className="hidden"
+                      id="excel-import"
+                    />
+                    <label 
+                      htmlFor="excel-import" 
+                      className="cursor-pointer"
+                    >
+                      <Upload className="h-10 w-10 mx-auto mb-2 text-slate-400" />
+                      <p className="font-medium text-slate-700">
+                        {importing ? "Import en cours..." : "Cliquez pour sélectionner un fichier"}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Formats acceptés: .xlsx, .xls
+                      </p>
+                    </label>
+                  </div>
+                  
+                  {importResult && (
+                    <div className={`p-4 rounded-lg ${importResult.imported > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                      <p className={`font-medium ${importResult.imported > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {importResult.imported} compétiteur(s) importé(s)
+                      </p>
+                      {importResult.errors?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-red-600">
+                            Erreurs ({importResult.total_errors || importResult.errors.length}):
+                          </p>
+                          <ul className="text-sm text-red-600 mt-1 list-disc list-inside max-h-32 overflow-y-auto">
+                            {importResult.errors.map((err, i) => (
+                              <li key={i}>{err}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => {
+                    setImportDialogOpen(false);
+                    setImportResult(null);
+                  }}>
+                    Fermer
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Bouton Ajouter */}
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                setForm(initialForm);
+                setEditingId(null);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button className="font-semibold uppercase tracking-wide" data-testid="add-competiteur-btn">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Ajouter
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-bold uppercase tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
