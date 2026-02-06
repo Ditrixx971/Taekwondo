@@ -2214,6 +2214,372 @@ async def verifier_lancement_finales(competition_id: str, user: User = Depends(g
         "message": "Les finales peuvent commencer !" if peut_lancer_finales else f"Il reste {combats_restants} combat(s) régulier(s) à terminer"
     }
 
+# ============ VALIDATION DES COACHS PAR COMPETITION ============
+
+@api_router.get("/competitions/{competition_id}/coaches")
+async def get_competition_coaches(competition_id: str, admin: User = Depends(require_admin)):
+    """Liste les coachs autorisés pour une compétition avec leurs infos"""
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    coaches_ids = competition.get("coaches_autorises", [])
+    coaches = []
+    
+    for coach_id in coaches_ids:
+        coach = await db.users.find_one(
+            {"user_id": coach_id},
+            {"_id": 0, "password": 0}
+        )
+        if coach:
+            coaches.append(coach)
+    
+    return coaches
+
+@api_router.get("/competitions/{competition_id}/coaches/available")
+async def get_available_coaches(competition_id: str, admin: User = Depends(require_admin)):
+    """Liste les coachs NON encore autorisés pour cette compétition"""
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    coaches_autorises = competition.get("coaches_autorises", [])
+    
+    # Récupérer tous les coachs qui ne sont pas encore autorisés
+    available_coaches = await db.users.find(
+        {"role": "coach", "user_id": {"$nin": coaches_autorises}},
+        {"_id": 0, "password": 0}
+    ).to_list(100)
+    
+    return available_coaches
+
+@api_router.post("/competitions/{competition_id}/coaches/{coach_id}")
+async def add_coach_to_competition(competition_id: str, coach_id: str, admin: User = Depends(require_admin)):
+    """Ajoute un coach à la liste des coachs autorisés pour une compétition"""
+    # Vérifier que la compétition existe
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    # Vérifier que l'utilisateur existe et est coach
+    coach = await db.users.find_one({"user_id": coach_id}, {"_id": 0})
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach non trouvé")
+    if coach.get("role") not in ["coach", "admin", "master"]:
+        raise HTTPException(status_code=400, detail="L'utilisateur n'est pas un coach")
+    
+    # Ajouter le coach s'il n'est pas déjà autorisé
+    if coach_id in competition.get("coaches_autorises", []):
+        raise HTTPException(status_code=400, detail="Coach déjà autorisé pour cette compétition")
+    
+    await db.competitions.update_one(
+        {"competition_id": competition_id},
+        {"$addToSet": {"coaches_autorises": coach_id}}
+    )
+    
+    return {"message": f"Coach {coach.get('name')} autorisé pour la compétition"}
+
+@api_router.delete("/competitions/{competition_id}/coaches/{coach_id}")
+async def remove_coach_from_competition(competition_id: str, coach_id: str, admin: User = Depends(require_admin)):
+    """Retire un coach de la liste des coachs autorisés pour une compétition"""
+    result = await db.competitions.update_one(
+        {"competition_id": competition_id},
+        {"$pull": {"coaches_autorises": coach_id}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    return {"message": "Coach retiré de la compétition"}
+
+# ============ IMPORT/EXPORT EXCEL COMPETITEURS ============
+
+@api_router.get("/competiteurs/export/{competition_id}")
+async def export_competiteurs_excel(competition_id: str, user: User = Depends(get_current_user)):
+    """Exporte la liste des compétiteurs d'une compétition au format Excel"""
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    import pandas as pd
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+    
+    # Récupérer la compétition
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    # Récupérer les compétiteurs
+    competiteurs = await db.competiteurs.find(
+        {"competition_id": competition_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Récupérer les catégories pour les noms
+    categories = await db.categories.find(
+        {"competition_id": competition_id},
+        {"_id": 0}
+    ).to_list(500)
+    cat_dict = {c["categorie_id"]: c["nom"] for c in categories}
+    
+    # Créer le workbook Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Compétiteurs"
+    
+    # Style pour l'en-tête
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # En-têtes
+    headers = ["Nom", "Prénom", "Date de naissance", "Sexe", "Poids déclaré", "Poids officiel", "Club", "Catégorie", "Pesé", "Surclassé"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Données
+    for row, comp in enumerate(competiteurs, 2):
+        ws.cell(row=row, column=1, value=comp.get("nom", "")).border = thin_border
+        ws.cell(row=row, column=2, value=comp.get("prenom", "")).border = thin_border
+        ws.cell(row=row, column=3, value=comp.get("date_naissance", "")).border = thin_border
+        ws.cell(row=row, column=4, value=comp.get("sexe", "")).border = thin_border
+        ws.cell(row=row, column=5, value=comp.get("poids_declare", "")).border = thin_border
+        ws.cell(row=row, column=6, value=comp.get("poids_officiel", "")).border = thin_border
+        ws.cell(row=row, column=7, value=comp.get("club", "")).border = thin_border
+        ws.cell(row=row, column=8, value=cat_dict.get(comp.get("categorie_id"), "Non assignée")).border = thin_border
+        ws.cell(row=row, column=9, value="Oui" if comp.get("pese") else "Non").border = thin_border
+        ws.cell(row=row, column=10, value="Oui" if comp.get("surclasse") else "Non").border = thin_border
+    
+    # Ajuster la largeur des colonnes
+    column_widths = [15, 15, 15, 8, 15, 15, 20, 30, 8, 10]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+    
+    # Sauvegarder dans un buffer
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    filename = f"competiteurs_{competition['nom'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/competiteurs/template")
+async def get_import_template(user: User = Depends(get_current_user)):
+    """Télécharge le template Excel pour l'import de compétiteurs"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+    from openpyxl.worksheet.datavalidation import DataValidation
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Compétiteurs"
+    
+    # Style pour l'en-tête
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # En-têtes requis
+    headers = ["Nom*", "Prénom*", "Date de naissance*", "Sexe*", "Poids déclaré*", "Club*", "Surclassé"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Ajouter des exemples
+    example_data = [
+        ["DUPONT", "Jean", "2010-05-15", "M", 35.5, "Taekwondo Club Paris", "Non"],
+        ["MARTIN", "Marie", "2012-08-20", "F", 28.0, "Taekwondo Club Lyon", "Non"],
+        ["DURAND", "Pierre", "2008-03-10", "M", 45.0, "Taekwondo Club Marseille", "Oui"],
+    ]
+    
+    for row, data in enumerate(example_data, 2):
+        for col, value in enumerate(data, 1):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.border = thin_border
+    
+    # Validation pour le sexe
+    dv_sexe = DataValidation(type="list", formula1='"M,F"', allow_blank=False)
+    dv_sexe.error = "Veuillez entrer M ou F"
+    dv_sexe.errorTitle = "Sexe invalide"
+    ws.add_data_validation(dv_sexe)
+    dv_sexe.add("D2:D1000")
+    
+    # Validation pour surclassé
+    dv_surclasse = DataValidation(type="list", formula1='"Oui,Non"', allow_blank=True)
+    ws.add_data_validation(dv_surclasse)
+    dv_surclasse.add("G2:G1000")
+    
+    # Ajuster la largeur des colonnes
+    column_widths = [15, 15, 18, 8, 15, 25, 10]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+    
+    # Feuille d'instructions
+    ws2 = wb.create_sheet("Instructions")
+    instructions = [
+        "INSTRUCTIONS POUR L'IMPORT DES COMPÉTITEURS",
+        "",
+        "Colonnes obligatoires (marquées *):",
+        "- Nom: Nom de famille du compétiteur",
+        "- Prénom: Prénom du compétiteur",
+        "- Date de naissance: Format AAAA-MM-JJ (ex: 2010-05-15)",
+        "- Sexe: M pour Masculin, F pour Féminin",
+        "- Poids déclaré: Poids en kg (ex: 35.5)",
+        "- Club: Nom du club",
+        "",
+        "Colonne optionnelle:",
+        "- Surclassé: Oui ou Non (défaut: Non)",
+        "",
+        "Notes:",
+        "- Ne modifiez pas la ligne d'en-tête",
+        "- La catégorie sera attribuée automatiquement selon l'âge et le poids",
+        "- Si Surclassé=Oui, l'admin devra attribuer manuellement la catégorie",
+    ]
+    for row, text in enumerate(instructions, 1):
+        ws2.cell(row=row, column=1, value=text)
+    ws2.column_dimensions['A'].width = 60
+    
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=template_import_competiteurs.xlsx"}
+    )
+
+@api_router.post("/competiteurs/import/{competition_id}")
+async def import_competiteurs_excel(
+    competition_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
+):
+    """Importe des compétiteurs depuis un fichier Excel"""
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    import pandas as pd
+    from openpyxl import load_workbook
+    
+    # Vérifier que la compétition existe et est active
+    competition = await db.competitions.find_one({"competition_id": competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    if competition.get("statut") != "active" and user.role not in ["admin", "master"]:
+        raise HTTPException(status_code=400, detail="La compétition n'est plus active")
+    
+    # Vérifier le type de fichier
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Le fichier doit être au format Excel (.xlsx ou .xls)")
+    
+    try:
+        content = await file.read()
+        wb = load_workbook(io.BytesIO(content))
+        ws = wb.active
+        
+        # Lire les en-têtes
+        headers = [cell.value for cell in ws[1]]
+        
+        # Mapper les colonnes (ignorer les astérisques)
+        col_map = {}
+        for i, h in enumerate(headers):
+            if h:
+                clean_h = h.replace("*", "").strip().lower()
+                col_map[clean_h] = i
+        
+        # Vérifier les colonnes requises
+        required = ["nom", "prénom", "date de naissance", "sexe", "poids déclaré", "club"]
+        missing = [r for r in required if r not in col_map]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Colonnes manquantes: {', '.join(missing)}")
+        
+        # Importer les compétiteurs
+        imported = 0
+        errors = []
+        
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
+            if not row[col_map["nom"]]:  # Ligne vide
+                continue
+            
+            try:
+                nom = str(row[col_map["nom"]]).strip()
+                prenom = str(row[col_map["prénom"]]).strip()
+                date_naissance = row[col_map["date de naissance"]]
+                sexe = str(row[col_map["sexe"]]).strip().upper()
+                poids_declare = float(row[col_map["poids déclaré"]])
+                club = str(row[col_map["club"]]).strip()
+                surclasse = str(row[col_map.get("surclassé", -1)] or "Non").strip().lower() in ["oui", "yes", "true", "1"]
+                
+                # Convertir la date si nécessaire
+                if isinstance(date_naissance, datetime):
+                    date_naissance = date_naissance.strftime("%Y-%m-%d")
+                else:
+                    date_naissance = str(date_naissance).strip()
+                
+                # Valider le sexe
+                if sexe not in ["M", "F"]:
+                    errors.append(f"Ligne {row_idx}: Sexe invalide '{sexe}' (doit être M ou F)")
+                    continue
+                
+                # Créer le compétiteur
+                comp = Competiteur(
+                    competition_id=competition_id,
+                    nom=nom,
+                    prenom=prenom,
+                    date_naissance=date_naissance,
+                    sexe=sexe,
+                    poids_declare=poids_declare,
+                    club=club,
+                    surclasse=surclasse,
+                    created_by=user.user_id
+                )
+                comp_dict = comp.model_dump()
+                comp_dict["created_at"] = comp_dict["created_at"].isoformat()
+                
+                # Attribution automatique de la catégorie
+                if not surclasse:
+                    categorie_id = await assign_categorie(comp_dict, competition_id)
+                    comp_dict["categorie_id"] = categorie_id
+                
+                await db.competiteurs.insert_one(comp_dict)
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Ligne {row_idx}: {str(e)}")
+        
+        return {
+            "message": f"{imported} compétiteur(s) importé(s)",
+            "imported": imported,
+            "errors": errors[:10] if errors else [],  # Limiter à 10 erreurs
+            "total_errors": len(errors)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur lors de la lecture du fichier: {str(e)}")
+
 # Include router
 app.include_router(api_router)
 
