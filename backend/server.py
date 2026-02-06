@@ -128,11 +128,16 @@ class AireCombat(BaseModel):
     competition_id: str  # Lié à une compétition
     nom: str
     numero: int
+    statut: str = "active"  # active, pause, hs (hors service)
 
 class AireCombatCreate(BaseModel):
     competition_id: str
     nom: str
     numero: int
+
+class AireCombatUpdate(BaseModel):
+    nom: Optional[str] = None
+    statut: Optional[str] = None  # active, pause, hs
 
 # Garder Tatami pour rétrocompatibilité (alias)
 class Tatami(BaseModel):
