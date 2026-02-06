@@ -2294,7 +2294,7 @@ async def remove_coach_from_competition(competition_id: str, coach_id: str, admi
 
 # ============ IMPORT/EXPORT EXCEL COMPETITEURS ============
 
-@api_router.get("/competiteurs/export/{competition_id}")
+@api_router.get("/excel/competiteurs/export/{competition_id}")
 async def export_competiteurs_excel(competition_id: str, user: User = Depends(get_current_user)):
     """Exporte la liste des compétiteurs d'une compétition au format Excel"""
     if not await user_can_access_competition(user, competition_id):
