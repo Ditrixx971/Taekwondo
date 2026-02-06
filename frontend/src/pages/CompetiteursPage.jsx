@@ -216,7 +216,7 @@ export default function CompetiteursPage() {
   const handleDownloadTemplate = async () => {
     try {
       const response = await axios.get(
-        `${API}/competiteurs/template`,
+        `${API}/excel/competiteurs/template`,
         { 
           withCredentials: true,
           responseType: 'blob'
