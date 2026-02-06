@@ -417,7 +417,8 @@ async def logout(request: Request, response: Response):
 
 async def user_can_access_competition(user: User, competition_id: str) -> bool:
     """Vérifie si l'utilisateur peut accéder à une compétition"""
-    if user.role == "admin":
+    # Master et Admin ont accès à toutes les compétitions
+    if user.role in ["admin", "master"]:
         return True
     
     competition = await db.competitions.find_one(
@@ -436,8 +437,8 @@ async def list_competitions(statut: Optional[str] = None, user: User = Depends(g
     if statut:
         query["statut"] = statut
     
-    if user.role == "admin":
-        # Admin voit toutes les compétitions
+    if user.role in ["admin", "master"]:
+        # Admin et Master voient toutes les compétitions
         competitions = await db.competitions.find(query, {"_id": 0}).sort("date", -1).to_list(100)
     else:
         # Coach ne voit que les compétitions où il est autorisé
