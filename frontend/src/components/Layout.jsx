@@ -39,6 +39,7 @@ const navItems = [
   { path: "/gestion-combats", label: "Gestion combats", icon: Swords },
   { path: "/arbre-combat", label: "Arbre des combats", icon: TreeDeciduous },
   { path: "/ordre-combats", label: "Ordre des combats", icon: List },
+  { path: "/arbitrage-multi", label: "Arbitrage multi-aires", icon: Columns },
   { path: "/resultats", label: "Résultats & Médailles", icon: Trophy },
 ];
 
