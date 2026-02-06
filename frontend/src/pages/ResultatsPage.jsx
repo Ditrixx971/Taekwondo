@@ -2,129 +2,260 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
-import { useAuth } from "../App";
+import { useAuth, useCompetition } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
-import { Trophy, Medal, Award } from "lucide-react";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger 
+} from "../components/ui/collapsible";
+import { 
+  Trophy, 
+  Medal, 
+  Award, 
+  Printer,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  CheckCircle2
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Composant Podium pour une catégorie
+const PodiumCategorie = ({ categorie, medailles, competiteurs, isOpen, onToggle, onAttribuerMedailles, isAdmin }) => {
+  const getCompetiteur = (id) => competiteurs.find(c => c.competiteur_id === id);
+  
+  const or = medailles.find(m => m.type === "or");
+  const argent = medailles.find(m => m.type === "argent");
+  const bronzes = medailles.filter(m => m.type === "bronze");
+  
+  const orComp = or ? getCompetiteur(or.competiteur_id) : null;
+  const argentComp = argent ? getCompetiteur(argent.competiteur_id) : null;
+  const bronzeComps = bronzes.map(b => getCompetiteur(b.competiteur_id)).filter(Boolean);
+
+  const hasMedailles = medailles.length > 0;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <Card className={`border-2 ${hasMedailles ? "border-yellow-200" : "border-slate-200"}`}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className={`cursor-pointer hover:bg-slate-50 transition-colors ${
+            hasMedailles ? "bg-gradient-to-r from-yellow-50 to-amber-50" : ""
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {hasMedailles && <Trophy className="h-5 w-5 text-yellow-500" />}
+                <CardTitle className="text-base font-bold">
+                  {categorie.nom}
+                </CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {categorie.nb_competiteurs || 0} compétiteurs
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                {hasMedailles ? (
+                  <Badge className="bg-green-500">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Terminé
+                  </Badge>
+                ) : isAdmin && categorie.finale_terminee ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAttribuerMedailles(categorie.categorie_id);
+                    }}
+                  >
+                    Attribuer médailles
+                  </Button>
+                ) : (
+                  <Badge variant="outline">En cours</Badge>
+                )}
+                {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-6">
+            {hasMedailles ? (
+              <div className="flex justify-center items-end gap-6 py-6">
+                {/* 2ème - Argent */}
+                {argentComp && (
+                  <div className="text-center">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                      <Medal className="h-10 w-10 text-white" />
+                    </div>
+                    <div className="h-16 w-20 bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-lg flex items-center justify-center">
+                      <span className="text-3xl font-black text-white">2</span>
+                    </div>
+                    <p className="font-bold mt-2 text-sm">{argentComp.prenom} {argentComp.nom}</p>
+                    <p className="text-xs text-slate-500">{argentComp.club}</p>
+                  </div>
+                )}
+
+                {/* 1er - Or */}
+                {orComp && (
+                  <div className="text-center -mt-4">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center mx-auto mb-3 shadow-xl ring-4 ring-yellow-300">
+                      <Trophy className="h-12 w-12 text-white" />
+                    </div>
+                    <div className="h-20 w-24 bg-gradient-to-t from-yellow-600 to-yellow-400 rounded-t-lg flex items-center justify-center">
+                      <span className="text-4xl font-black text-white">1</span>
+                    </div>
+                    <p className="font-bold mt-2">{orComp.prenom} {orComp.nom}</p>
+                    <p className="text-xs text-slate-500">{orComp.club}</p>
+                  </div>
+                )}
+
+                {/* 3ème - Bronze */}
+                {bronzeComps.length > 0 && (
+                  <div className="text-center">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                      <Award className="h-10 w-10 text-white" />
+                    </div>
+                    <div className="h-14 w-20 bg-gradient-to-t from-amber-800 to-amber-600 rounded-t-lg flex items-center justify-center">
+                      <span className="text-3xl font-black text-white">3</span>
+                    </div>
+                    <p className="font-bold mt-2 text-sm">{bronzeComps[0].prenom} {bronzeComps[0].nom}</p>
+                    <p className="text-xs text-slate-500">{bronzeComps[0].club}</p>
+                    {bronzeComps.length > 1 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        + {bronzeComps[1].prenom} {bronzeComps[1].nom}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-500">
+                <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Pas encore de médailles attribuées</p>
+              </div>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+};
+
 export default function ResultatsPage() {
   const { isAdmin } = useAuth();
+  const { competition } = useCompetition();
   const [categories, setCategories] = useState([]);
-  const [selectedCategorie, setSelectedCategorie] = useState("");
-  const [combats, setCombats] = useState([]);
-  const [medailles, setMedailles] = useState([]);
+  const [medaillesParCategorie, setMedaillesParCategorie] = useState({});
   const [competiteurs, setCompetiteurs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [attribuant, setAttribuant] = useState(false);
+  const [openCategories, setOpenCategories] = useState({});
+  const [showAll, setShowAll] = useState(true);
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCategorie) {
-      fetchCategorieData();
+    if (competition) {
+      fetchData();
     }
-  }, [selectedCategorie]);
+  }, [competition]);
 
-  const fetchInitialData = async () => {
+  const fetchData = async () => {
     try {
-      const [catRes, compRes] = await Promise.all([
-        axios.get(`${API}/categories`, { withCredentials: true }),
-        axios.get(`${API}/competiteurs`, { withCredentials: true })
+      const [catRes, compRes, medRes, combatsRes] = await Promise.all([
+        axios.get(`${API}/categories?competition_id=${competition.competition_id}`, { withCredentials: true }),
+        axios.get(`${API}/competiteurs?competition_id=${competition.competition_id}`, { withCredentials: true }),
+        axios.get(`${API}/medailles?competition_id=${competition.competition_id}`, { withCredentials: true }),
+        axios.get(`${API}/combats?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
-      setCategories(catRes.data);
+      
+      // Compter les compétiteurs par catégorie et vérifier si finale terminée
+      const catsWithInfo = catRes.data.map(cat => {
+        const catCompetiteurs = compRes.data.filter(c => c.categorie_id === cat.categorie_id);
+        const catCombats = combatsRes.data.filter(c => c.categorie_id === cat.categorie_id);
+        const finale = catCombats.find(c => c.tour === "finale");
+        return {
+          ...cat,
+          nb_competiteurs: catCompetiteurs.length,
+          finale_terminee: finale?.termine || false
+        };
+      });
+      
+      // Trier par âge puis par poids (du plus petit au plus grand)
+      const sortedCats = catsWithInfo
+        .filter(c => c.nb_competiteurs >= 2)
+        .sort((a, b) => {
+          if (a.age_min !== b.age_min) return a.age_min - b.age_min;
+          if (a.sexe !== b.sexe) return a.sexe.localeCompare(b.sexe);
+          return a.poids_min - b.poids_min;
+        });
+      
+      setCategories(sortedCats);
       setCompetiteurs(compRes.data);
       
-      if (catRes.data.length > 0) {
-        setSelectedCategorie(catRes.data[0].categorie_id);
-      }
+      // Grouper les médailles par catégorie
+      const medParCat = {};
+      medRes.data.forEach(m => {
+        if (!medParCat[m.categorie_id]) medParCat[m.categorie_id] = [];
+        medParCat[m.categorie_id].push(m);
+      });
+      setMedaillesParCategorie(medParCat);
+      
+      // Ouvrir automatiquement les catégories avec médailles
+      const openState = {};
+      sortedCats.forEach(cat => {
+        openState[cat.categorie_id] = medParCat[cat.categorie_id]?.length > 0;
+      });
+      setOpenCategories(openState);
+      
     } catch (error) {
-      toast.error("Erreur lors du chargement des données");
+      toast.error("Erreur lors du chargement");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchCategorieData = async () => {
-    try {
-      const [combatsRes, medaillesRes] = await Promise.all([
-        axios.get(`${API}/combats?categorie_id=${selectedCategorie}`, { withCredentials: true }),
-        axios.get(`${API}/medailles?categorie_id=${selectedCategorie}`, { withCredentials: true })
-      ]);
-      setCombats(combatsRes.data);
-      setMedailles(medaillesRes.data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
-
-  const handleAttribuerMedailles = async () => {
-    setAttribuant(true);
+  const handleAttribuerMedailles = async (categorieId) => {
     try {
       const response = await axios.post(
-        `${API}/combats/${selectedCategorie}/attribuer-medailles`,
+        `${API}/combats/${categorieId}/attribuer-medailles`,
         {},
         { withCredentials: true }
       );
       toast.success(response.data.message);
-      fetchCategorieData();
+      fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur lors de l'attribution");
-    } finally {
-      setAttribuant(false);
     }
   };
 
-  const getCompetiteur = (id) => {
-    return competiteurs.find(c => c.competiteur_id === id);
+  const toggleCategorie = (categorieId) => {
+    setOpenCategories(prev => ({
+      ...prev,
+      [categorieId]: !prev[categorieId]
+    }));
   };
 
-  const getCompetiteurNom = (id) => {
-    const comp = getCompetiteur(id);
-    return comp ? `${comp.prenom} ${comp.nom}` : "Inconnu";
+  const toggleAll = () => {
+    const newState = !showAll;
+    setShowAll(newState);
+    const openState = {};
+    categories.forEach(cat => {
+      openState[cat.categorie_id] = newState;
+    });
+    setOpenCategories(openState);
   };
 
-  const getCategorieNom = (id) => {
-    const cat = categories.find(c => c.categorie_id === id);
-    return cat ? cat.nom : "Inconnu";
+  const handlePrint = () => {
+    window.print();
   };
 
-  const finale = combats.find(c => c.tour === "finale");
-  const finaleTerminee = finale?.termine;
-  const medaillesAttribuees = medailles.length > 0;
-
-  const getMedailleIcon = (type) => {
-    switch (type) {
-      case "or":
-        return <Trophy className="h-6 w-6" />;
-      case "argent":
-        return <Medal className="h-6 w-6" />;
-      case "bronze":
-        return <Award className="h-6 w-6" />;
-      default:
-        return null;
-    }
-  };
-
-  const getMedailleStyle = (type) => {
-    switch (type) {
-      case "or":
-        return "gold-bg text-white";
-      case "argent":
-        return "silver-bg text-white";
-      case "bronze":
-        return "bronze-bg text-white";
-      default:
-        return "bg-slate-200";
-    }
-  };
+  // Stats globales
+  const totalMedailles = Object.values(medaillesParCategorie).flat().length;
+  const categoriesTerminees = categories.filter(c => medaillesParCategorie[c.categorie_id]?.length > 0).length;
 
   if (loading) {
     return (
@@ -143,232 +274,113 @@ export default function ResultatsPage() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden"
         >
           <div>
-            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-              Résultats & Médailles
+            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
+              Résultats & Podiums
             </h1>
-            <p className="text-slate-500 mt-1">Podium et classement final</p>
+            <p className="text-slate-500 mt-1">Vue d'ensemble des médailles</p>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={toggleAll}>
+              {showAll ? "Tout réduire" : "Tout déplier"}
+            </Button>
+            <Button variant="outline" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimer
+            </Button>
           </div>
         </motion.div>
 
-        {/* Category Selection */}
+        {/* Stats globales */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
+          className="print:hidden"
         >
-          <Card className="border-slate-200">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row gap-4 items-end">
-                <div className="flex-1 space-y-2">
-                  <label className="text-sm font-medium">Catégorie</label>
-                  <Select value={selectedCategorie} onValueChange={setSelectedCategorie}>
-                    <SelectTrigger data-testid="select-categorie-resultats">
-                      <SelectValue placeholder="Sélectionner une catégorie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(cat => (
-                        <SelectItem key={cat.categorie_id} value={cat.categorie_id}>
-                          {cat.nom}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <Card className="border-slate-200 bg-gradient-to-r from-yellow-50 via-slate-50 to-amber-50">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-3 gap-6 text-center">
+                <div>
+                  <p className="text-4xl font-black text-yellow-600">{categoriesTerminees}</p>
+                  <p className="text-sm text-slate-500">Catégories terminées</p>
                 </div>
-                {isAdmin && finaleTerminee && !medaillesAttribuees && (
-                  <Button
-                    onClick={handleAttribuerMedailles}
-                    disabled={attribuant}
-                    className="font-semibold uppercase tracking-wide bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700"
-                    data-testid="attribuer-medailles-btn"
-                  >
-                    {attribuant ? (
-                      "Attribution..."
-                    ) : (
-                      <>
-                        <Trophy className="mr-2 h-4 w-4" />
-                        Attribuer les médailles
-                      </>
-                    )}
-                  </Button>
-                )}
+                <div>
+                  <p className="text-4xl font-black text-slate-700">{categories.length}</p>
+                  <p className="text-sm text-slate-500">Catégories totales</p>
+                </div>
+                <div>
+                  <p className="text-4xl font-black text-amber-600">{totalMedailles}</p>
+                  <p className="text-sm text-slate-500">Médailles attribuées</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Podium */}
-        {medaillesAttribuees && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="border-slate-200 overflow-hidden">
-              <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-                <CardTitle className="text-lg font-bold uppercase tracking-wide flex items-center gap-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  Podium - {getCategorieNom(selectedCategorie)}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="flex justify-center items-end gap-4 md:gap-8">
-                  {/* Argent - 2ème place */}
-                  {medailles.filter(m => m.type === "argent").map((m, i) => {
-                    const comp = getCompetiteur(m.competiteur_id);
-                    return (
-                      <motion.div
-                        key={m.medaille_id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="text-center"
-                      >
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full silver-bg flex items-center justify-center mx-auto mb-4 shadow-lg">
-                          <Medal className="h-12 w-12 md:h-16 md:w-16 text-white" />
-                        </div>
-                        <div className="h-24 w-24 md:w-32 bg-gradient-to-t from-slate-300 to-slate-200 rounded-t-lg flex items-center justify-center">
-                          <span className="text-4xl md:text-5xl font-black text-white">2</span>
-                        </div>
-                        <p className="font-bold mt-3 text-slate-900">{comp?.prenom} {comp?.nom}</p>
-                        <p className="text-sm text-slate-500">{comp?.club}</p>
-                        <Badge className="mt-2 silver-bg">Argent</Badge>
-                      </motion.div>
-                    );
-                  })}
+        {/* Titre impression */}
+        <div className="hidden print:block text-center mb-6">
+          <h1 className="text-2xl font-black uppercase">{competition?.nom}</h1>
+          <h2 className="text-lg font-bold mt-1">Résultats et Podiums</h2>
+          <p className="text-sm text-slate-500">
+            {new Date(competition?.date).toLocaleDateString('fr-FR', { 
+              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
+            })}
+          </p>
+        </div>
 
-                  {/* Or - 1ère place */}
-                  {medailles.filter(m => m.type === "or").map((m) => {
-                    const comp = getCompetiteur(m.competiteur_id);
-                    return (
-                      <motion.div
-                        key={m.medaille_id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-center -mt-8"
-                      >
-                        <div className="w-28 h-28 md:w-40 md:h-40 rounded-full gold-bg flex items-center justify-center mx-auto mb-4 shadow-xl ring-4 ring-yellow-300">
-                          <Trophy className="h-14 w-14 md:h-20 md:w-20 text-white" />
-                        </div>
-                        <div className="h-32 w-28 md:w-40 bg-gradient-to-t from-yellow-500 to-yellow-400 rounded-t-lg flex items-center justify-center">
-                          <span className="text-5xl md:text-6xl font-black text-white">1</span>
-                        </div>
-                        <p className="font-bold mt-3 text-slate-900 text-lg">{comp?.prenom} {comp?.nom}</p>
-                        <p className="text-sm text-slate-500">{comp?.club}</p>
-                        <Badge className="mt-2 gold-bg">Or</Badge>
-                      </motion.div>
-                    );
-                  })}
-
-                  {/* Bronze - 3ème place */}
-                  {medailles.filter(m => m.type === "bronze").slice(0, 1).map((m) => {
-                    const comp = getCompetiteur(m.competiteur_id);
-                    return (
-                      <motion.div
-                        key={m.medaille_id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="text-center"
-                      >
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bronze-bg flex items-center justify-center mx-auto mb-4 shadow-lg">
-                          <Award className="h-12 w-12 md:h-16 md:w-16 text-white" />
-                        </div>
-                        <div className="h-20 w-24 md:w-32 bg-gradient-to-t from-amber-700 to-amber-600 rounded-t-lg flex items-center justify-center">
-                          <span className="text-4xl md:text-5xl font-black text-white">3</span>
-                        </div>
-                        <p className="font-bold mt-3 text-slate-900">{comp?.prenom} {comp?.nom}</p>
-                        <p className="text-sm text-slate-500">{comp?.club}</p>
-                        <Badge className="mt-2 bronze-bg">Bronze</Badge>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-
-                {/* Additional bronze medals */}
-                {medailles.filter(m => m.type === "bronze").length > 1 && (
-                  <div className="mt-8 pt-6 border-t border-slate-200">
-                    <p className="text-sm font-medium text-slate-500 mb-4 text-center">Autres médailles de bronze</p>
-                    <div className="flex justify-center gap-4 flex-wrap">
-                      {medailles.filter(m => m.type === "bronze").slice(1).map((m) => {
-                        const comp = getCompetiteur(m.competiteur_id);
-                        return (
-                          <div key={m.medaille_id} className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg">
-                            <Award className="h-5 w-5 text-amber-600" />
-                            <span className="font-medium">{comp?.prenom} {comp?.nom}</span>
-                            <span className="text-sm text-slate-500">({comp?.club})</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Combat Results Summary */}
-        {combats.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+        {/* Liste des catégories avec podiums */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-4"
+        >
+          {categories.length === 0 ? (
             <Card className="border-slate-200">
-              <CardHeader className="border-b border-slate-100">
-                <CardTitle className="text-lg font-bold uppercase tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Résumé des combats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-xl text-center">
-                    <p className="text-3xl font-black text-slate-900 score-display">
-                      {combats.length}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">Combats total</p>
-                  </div>
-                  <div className="p-4 bg-green-50 rounded-xl text-center">
-                    <p className="text-3xl font-black text-green-600 score-display">
-                      {combats.filter(c => c.termine).length}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">Terminés</p>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-xl text-center">
-                    <p className="text-3xl font-black text-blue-600 score-display">
-                      {combats.filter(c => !c.termine && c.rouge_id && c.bleu_id).length}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">En attente</p>
-                  </div>
-                  <div className="p-4 bg-yellow-50 rounded-xl text-center">
-                    <p className="text-3xl font-black text-yellow-600 score-display">
-                      {medailles.length}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">Médailles</p>
-                  </div>
-                </div>
+              <CardContent className="py-12 text-center">
+                <Trophy className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-500">Aucune catégorie avec des compétiteurs</p>
               </CardContent>
             </Card>
-          </motion.div>
-        )}
-
-        {/* No data state */}
-        {combats.length === 0 && (
-          <Card className="border-slate-200">
-            <CardContent className="py-16">
-              <div className="flex flex-col items-center justify-center text-slate-500">
-                <Trophy className="h-12 w-12 mb-4 text-slate-300" />
-                <p className="text-lg font-medium">Aucun résultat</p>
-                <p className="text-sm">Générez les combats et saisissez les résultats</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+          ) : (
+            categories.map((categorie, index) => (
+              <motion.div
+                key={categorie.categorie_id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 + index * 0.03 }}
+              >
+                <PodiumCategorie
+                  categorie={categorie}
+                  medailles={medaillesParCategorie[categorie.categorie_id] || []}
+                  competiteurs={competiteurs}
+                  isOpen={openCategories[categorie.categorie_id]}
+                  onToggle={() => toggleCategorie(categorie.categorie_id)}
+                  onAttribuerMedailles={handleAttribuerMedailles}
+                  isAdmin={isAdmin}
+                />
+              </motion.div>
+            ))
+          )}
+        </motion.div>
       </div>
+
+      {/* Styles impression */}
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 1cm; }
+          .print\\:hidden { display: none !important; }
+          .print\\:block { display: block !important; }
+          [data-state="closed"] > [data-radix-collapsible-content] {
+            display: block !important;
+            height: auto !important;
+          }
+        }
+      `}</style>
     </Layout>
   );
 }
