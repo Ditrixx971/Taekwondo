@@ -1,0 +1,131 @@
+{
+  "summary": "Phase 2 testing complete for Taekwondo Competition Manager. All backend APIs (19/19 tests passed, 1 skipped) and frontend pages are working correctly. User role management, coach validation per competition, and Excel import/export features are fully functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/users - List all users with roles (PASSED)",
+    "Backend: PUT /api/users/{user_id}/role - Change role to admin (PASSED)",
+    "Backend: PUT /api/users/{user_id}/role - Change role back to coach (PASSED)",
+    "Backend: PUT /api/users/{user_id}/role - Invalid role returns 400 (PASSED)",
+    "Backend: PUT /api/users/{user_id}/role - Non-existent user returns 404 (PASSED)",
+    "Backend: PUT /api/users/{user_id}/role - Admin cannot promote to master (403) (PASSED)",
+    "Backend: DELETE /api/users/{user_id} - Admin cannot delete users (403) (PASSED)",
+    "Backend: GET /api/competitions/{competition_id}/coaches - List authorized coaches (PASSED)",
+    "Backend: GET /api/competitions/{competition_id}/coaches/available - List available coaches (PASSED)",
+    "Backend: POST /api/competitions/{competition_id}/coaches/{coach_id} - Add coach (PASSED)",
+    "Backend: DELETE /api/competitions/{competition_id}/coaches/{coach_id} - Remove coach (PASSED)",
+    "Backend: GET /api/competitions/{competition_id}/coaches - Non-existent competition returns 404 (PASSED)",
+    "Backend: GET /api/excel/competiteurs/export/{competition_id} - Export Excel (PASSED)",
+    "Backend: GET /api/excel/competiteurs/export - Non-existent competition returns 404 (PASSED)",
+    "Backend: GET /api/excel/competiteurs/template - Download template (PASSED)",
+    "Backend: POST /api/excel/competiteurs/import - Endpoint exists and validates (PASSED)",
+    "Backend: POST /api/excel/competiteurs/import - Invalid file type rejected (PASSED)",
+    "Backend: POST /api/excel/competiteurs/import - Non-existent competition returns 404 (PASSED)",
+    "Backend: Integration - Full coach workflow (PASSED)",
+    "Backend: Integration - Full Excel workflow (PASSED)",
+    "Frontend: UsersPage - Page loads with title 'GESTION DES UTILISATEURS' (PASSED)",
+    "Frontend: UsersPage - 8 users displayed with roles (Coach, Administrateur, MASTER) (PASSED)",
+    "Frontend: UsersPage - Role selector dropdowns present (7 selectors) (PASSED)",
+    "Frontend: UsersPage - Role dropdown shows Coach and Administrateur options (PASSED)",
+    "Frontend: UsersPage - MASTER option NOT visible for admin user (correct behavior) (PASSED)",
+    "Frontend: UsersPage - Current user marked with '(Vous)' and cannot change own role (PASSED)",
+    "Frontend: UsersPage - Delete buttons NOT visible for admin user (MASTER only) (PASSED)",
+    "Frontend: UsersPage - Permissions info section displayed (PASSED)",
+    "Frontend: CoachesCompetitionPage - Page loads with title 'COACHS AUTORISÉS' (PASSED)",
+    "Frontend: CoachesCompetitionPage - 'AJOUTER UN COACH' button present (PASSED)",
+    "Frontend: CoachesCompetitionPage - Add coach dialog opens correctly (PASSED)",
+    "Frontend: CoachesCompetitionPage - Available coaches displayed in dialog (PASSED)",
+    "Frontend: CoachesCompetitionPage - Coach added to authorized list (PASSED)",
+    "Frontend: CoachesCompetitionPage - Remove coach button visible (PASSED)",
+    "Frontend: CoachesCompetitionPage - Remove confirmation dialog works (PASSED)",
+    "Frontend: CoachesCompetitionPage - Authorization info section displayed (PASSED)",
+    "Frontend: CompetiteursPage - 'Exporter Excel' button present (PASSED)",
+    "Frontend: CompetiteursPage - 'Importer Excel' button present (PASSED)",
+    "Frontend: CompetiteursPage - Import dialog opens correctly (PASSED)",
+    "Frontend: CompetiteursPage - 'Télécharger le template' button in dialog (PASSED)",
+    "Frontend: CompetiteursPage - File upload area with accepted formats (PASSED)"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_features.py",
+    "/app/test_reports/pytest/pytest_phase2_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_phase2_features.py (new test file for Phase 2 features)"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed, 1 skipped)",
+    "frontend": "100% (All UI and integration tests passed)"
+  },
+  "test_credentials": {
+    "admin_email": "admin2@test.com",
+    "admin_password": "admin123",
+    "coach_email": "coach_test@test.com",
+    "coach_password": "coach123",
+    "competition_id_paris": "comp_535694c8e8dc"
+  },
+  "seed_data_creation": "No new seed data created",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 2 features are fully implemented and tested. User role management works with 3 roles (Coach, Admin, MASTER). Admin can change roles between Coach and Admin, but only MASTER can promote to MASTER or delete users. Coach validation per competition works - coaches must be authorized for each competition individually. Excel import/export uses /api/excel/ prefix to avoid route conflicts. The template download and export produce valid .xlsx files.",
+  "features_verified": {
+    "users_page": {
+      "url": "/utilisateurs",
+      "status": "WORKING",
+      "features": [
+        "List all users with roles (Coach, Administrateur, MASTER)",
+        "Role selector dropdown for changing roles",
+        "Admin can change Coach <-> Admin",
+        "Admin cannot promote to MASTER (403)",
+        "Delete button only visible for MASTER users",
+        "Current user marked with '(Vous)'",
+        "Cannot change own role",
+        "Permissions info section"
+      ]
+    },
+    "coaches_competition_page": {
+      "url": "/coachs-autorises",
+      "status": "WORKING",
+      "features": [
+        "List authorized coaches for competition",
+        "Add coach button and dialog",
+        "Available coaches list in dialog",
+        "Add coach to competition",
+        "Remove coach button",
+        "Remove confirmation dialog",
+        "Authorization info section"
+      ]
+    },
+    "competiteurs_page_excel": {
+      "url": "/inscriptions",
+      "status": "WORKING",
+      "features": [
+        "Exporter Excel button",
+        "Importer Excel button",
+        "Import dialog with template download",
+        "File upload area",
+        "Accepted formats: .xlsx, .xls"
+      ]
+    },
+    "backend_apis": {
+      "GET /api/users": "WORKING - Lists all users with roles",
+      "PUT /api/users/{user_id}/role": "WORKING - Changes user role (with MASTER restrictions)",
+      "DELETE /api/users/{user_id}": "WORKING - Deletes user (MASTER only)",
+      "GET /api/competitions/{competition_id}/coaches": "WORKING - Lists authorized coaches",
+      "GET /api/competitions/{competition_id}/coaches/available": "WORKING - Lists available coaches",
+      "POST /api/competitions/{competition_id}/coaches/{coach_id}": "WORKING - Adds coach to competition",
+      "DELETE /api/competitions/{competition_id}/coaches/{coach_id}": "WORKING - Removes coach from competition",
+      "GET /api/excel/competiteurs/export/{competition_id}": "WORKING - Exports competitors to Excel",
+      "GET /api/excel/competiteurs/template": "WORKING - Downloads import template",
+      "POST /api/excel/competiteurs/import/{competition_id}": "WORKING - Imports competitors from Excel"
+    }
+  }
+}
