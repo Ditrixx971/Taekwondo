@@ -2377,7 +2377,7 @@ async def export_competiteurs_excel(competition_id: str, user: User = Depends(ge
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-@api_router.get("/competiteurs/template")
+@api_router.get("/excel/competiteurs/template")
 async def get_import_template(user: User = Depends(get_current_user)):
     """Télécharge le template Excel pour l'import de compétiteurs"""
     from openpyxl import Workbook
