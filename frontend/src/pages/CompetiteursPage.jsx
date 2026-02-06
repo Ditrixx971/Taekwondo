@@ -514,7 +514,7 @@ export default function CompetiteursPage() {
                       className="text-sm font-medium cursor-pointer flex items-center gap-2"
                     >
                       <ArrowUpCircle className="h-4 w-4 text-blue-500" />
-                      Surclassement (catégorie d'âge supérieure)
+                      Surclassement (catégorie d&apos;âge supérieure)
                     </Label>
                   </div>
                   
@@ -522,7 +522,7 @@ export default function CompetiteursPage() {
                     <div className="space-y-2 pl-6">
                       {!form.date_naissance ? (
                         <p className="text-xs text-amber-600">
-                          Veuillez d'abord renseigner la date de naissance
+                          Veuillez d&apos;abord renseigner la date de naissance
                         </p>
                       ) : categoriesSurclassement.length === 0 ? (
                         <p className="text-xs text-slate-500">
