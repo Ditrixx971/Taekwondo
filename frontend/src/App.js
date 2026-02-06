@@ -201,6 +201,7 @@ function AppRouter() {
       <Route path="/arbre-combat" element={<ProtectedRoute><ArbreCombatPage /></ProtectedRoute>} />
       <Route path="/ordre-combats" element={<ProtectedRoute><OrdreCombatsPage /></ProtectedRoute>} />
       <Route path="/arbitre/:aireId" element={<ProtectedRoute><ArbitrePage /></ProtectedRoute>} />
+      <Route path="/arbitrage-multi" element={<ProtectedRoute><ArbitreMultiPage /></ProtectedRoute>} />
       <Route path="/resultats" element={<ProtectedRoute><ResultatsPage /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
       <Route path="/coaches-competition" element={<ProtectedRoute><CoachesCompetitionPage /></ProtectedRoute>} />
