@@ -250,7 +250,7 @@ export default function CompetiteursPage() {
       formData.append('file', file);
       
       const response = await axios.post(
-        `${API}/competiteurs/import/${competition.competition_id}`,
+        `${API}/excel/competiteurs/import/${competition.competition_id}`,
         formData,
         { 
           withCredentials: true,
