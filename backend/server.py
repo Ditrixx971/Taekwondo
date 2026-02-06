@@ -31,7 +31,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     name: str
-    role: str = "coach"  # coach or admin
+    role: str = "coach"  # coach, admin, or master
 
 class UserLogin(BaseModel):
     email: str
