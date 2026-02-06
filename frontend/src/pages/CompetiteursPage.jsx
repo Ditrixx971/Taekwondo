@@ -568,6 +568,7 @@ export default function CompetiteursPage() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </motion.div>
 
         {/* Filters */}
