@@ -941,6 +941,10 @@ async def get_aire_combat(aire_id: str, user: User = Depends(get_current_user)):
     if not aire:
         raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
     
+    # Assurer que l'aire a un statut (pour rétrocompatibilité)
+    if "statut" not in aire:
+        aire["statut"] = "active"
+    
     # Récupérer le combat en cours sur cette aire
     combat_en_cours = await db.combats.find_one(
         {"aire_id": aire_id, "statut": "en_cours"},
