@@ -20,7 +20,8 @@ import {
   List,
   Crown,
   UserCheck,
-  Shield
+  Shield,
+  Columns
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
