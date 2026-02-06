@@ -17,6 +17,7 @@ import ArbreCombatPage from "./pages/ArbreCombatPage";
 import OrdreCombatsPage from "./pages/OrdreCombatsPage";
 import ResultatsPage from "./pages/ResultatsPage";
 import UsersPage from "./pages/UsersPage";
+import CoachesCompetitionPage from "./pages/CoachesCompetitionPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
