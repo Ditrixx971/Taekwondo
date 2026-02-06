@@ -26,8 +26,10 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - `/categories` - **CategoriesPage**: Catégories officielles FFTA/FFDA
 - `/aires-combat` - **AiresCombatPage**: Gestion des 2-3 aires de combat
 - `/gestion-combats` - **GestionCombatsPage**: Génération et répartition des combats
+- `/arbre-combat` - **ArbreCombatPage**: Visualisation arbre de combat (bracket)
+- `/ordre-combats` - **OrdreCombatsPage**: Liste ordonnée avec drag & drop
 - `/arbitre/:aireId` - **ArbitrePage**: Vue par aire pour saisie des résultats
-- `/resultats` - **ResultatsPage**: Médailles par catégorie
+- `/resultats` - **ResultatsPage**: Médailles et podiums par catégorie
 
 ### Règles Taekwondo Implémentées
 - ✅ **Élimination directe**: Un perdant est éliminé définitivement (sauf demi-finale → bronze)
@@ -69,20 +71,35 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - **Finales à la fin**: Toutes les finales regroupées après les combats réguliers
 - **Règle élimination**: Perdant marqué comme éliminé (sauf bronze en demi)
 
+### Phase 6 (6 Feb 2026) - PHASE 1 UTILISATEUR ✅
+- **Drag & Drop des combats** (via @dnd-kit): Réorganisation de l'ordre des combats sur une aire
+- **Gestion statut aires**: Boutons Active/Pause/HS avec persistance
+- **Arbre de combat visuel**: Affichage bracket (quarts, demis, finale, bronze)
+- **Page Ordre des combats**: Liste ordonnée avec horaires approximatifs
+- **Page Résultats améliorée**: Statistiques, collapsibles par catégorie, podium
+- **Forfaits**: Endpoint pour déclarer un forfait avec propagation automatique
+
 ## API Endpoints Clés
 
-### Aires de Combat (Nouveaux)
+### Aires de Combat
 - `POST /api/aires-combat` - Créer une aire
 - `GET /api/aires-combat?competition_id=X` - Lister les aires
+- `PUT /api/aires-combat/{aire_id}` - Modifier nom/statut (active/pause/hs)
 - `DELETE /api/aires-combat/{aire_id}` - Supprimer
 - `POST /api/aires-combat/repartir/{competition_id}` - Répartition automatique
 
-### Arbitre (Nouveaux)
+### Ordre et Drag & Drop
+- `GET /api/combats/ordre/{aire_id}` - Liste ordonnée des combats
+- `PUT /api/combats/reorder/{aire_id}` - Sauvegarder nouvel ordre (drag & drop)
+- `POST /api/combats/{combat_id}/forfait` - Déclarer forfait
+
+### Arbre de Combat
+- `GET /api/combats/arbre/{categorie_id}` - Données de l'arbre (quarts, demis, finale, bronze)
+
+### Arbitre
 - `GET /api/arbitre/aire/{aire_id}` - Vue complète (combat en cours, à venir, finales)
 - `POST /api/arbitre/lancer/{combat_id}` - Lancer un combat
 - `POST /api/arbitre/resultat/{combat_id}?vainqueur=rouge/bleu` - Saisir résultat
-- `GET /api/arbitre/prochain/{aire_id}` - Prochain combat
-- `POST /api/arbitre/verifier-finales/{competition_id}` - Vérifier si finales peuvent commencer
 
 ### Catégories
 - `POST /api/categories/seed/{competition_id}` - Créer les 126 catégories officielles
@@ -91,32 +108,36 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 ## Test Credentials
 - **Admin**: admin2@test.com / admin123
 - **Competition test**: comp_535694c8e8dc (Open de Paris 2026)
-- **Aires de combat**: Aire A, Aire B
+- **Aires de combat**: Aire A (aire_a22a0c0e62b6), Aire B (aire_25623f585db3)
 
 ## Test Status
-- **Backend**: 100% (14/14 tests passés)
+- **Backend**: 100% (iteration_5.json)
 - **Frontend**: 100% (toutes les pages fonctionnelles)
-- **Test file**: `/app/backend/tests/test_aires_combat_arbitre.py`
+- **Test files**: 
+  - `/app/backend/tests/test_aires_combat_arbitre.py`
+  - `/app/backend/tests/test_phase1_features.py`
 
 ## Backlog
 
-### P1 (Haute priorité)
+### P1 (Phase 2 - Haute priorité)
+- [ ] Gestion des utilisateurs (Validation des coachs, rôle MASTER, journal d'audit)
+- [ ] Import/Export des compétiteurs via Excel standardisé
+
+### P2 (Phase 3 - Moyenne priorité)
+- [ ] Rapports et statistiques (classement des clubs, médailles par club)
+- [ ] Export PDF/Excel des résultats
+- [ ] Amélioration des filtres sur la page des catégories
+
+### P3 (Nice to have)
 - [ ] Timer de combat intégré avec contrôles (pause, reprise)
 - [ ] Notifications sonores pour appel des combattants
 - [ ] Améliorer le responsive mobile pour la vue arbitre
-
-### P2 (Moyenne priorité)
-- [ ] Export PDF des résultats et médailles
-- [ ] Statistiques par club
 - [ ] Mode hors-ligne amélioré (PWA)
-
-### P3 (Nice to have)
 - [ ] Multi-langues
 - [ ] Dark mode
-- [ ] Application mobile native
 
 ## Architecture Technique
 - **Backend**: FastAPI + MongoDB
-- **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion
+- **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion + @dnd-kit
 - **Auth**: JWT + Google OAuth (Emergent Auth)
 - **État**: React Context pour compétition active
