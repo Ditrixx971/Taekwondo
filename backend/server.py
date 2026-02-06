@@ -1036,6 +1036,155 @@ async def repartir_combats_sur_aires(competition_id: str, user: User = Depends(r
         "finales": len(finales)
     }
 
+@api_router.put("/aires-combat/{aire_id}")
+async def update_aire_combat(aire_id: str, data: AireCombatUpdate, user: User = Depends(require_admin)):
+    """Met à jour une aire de combat (nom, statut: active/pause/hs)"""
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Aucune donnée à mettre à jour")
+    
+    result = await db.aires_combat.update_one(
+        {"aire_id": aire_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
+    
+    aire = await db.aires_combat.find_one({"aire_id": aire_id}, {"_id": 0})
+    return aire
+
+# ============ GESTION ORDRE DES COMBATS (DRAG & DROP) ============
+
+class ReorderCombatsRequest(BaseModel):
+    combat_ids: list[str]  # Liste des combat_ids dans le nouvel ordre
+
+@api_router.put("/combats/reorder/{aire_id}")
+async def reorder_combats(aire_id: str, data: ReorderCombatsRequest, user: User = Depends(require_admin)):
+    """
+    Réordonne les combats d'une aire de combat.
+    Reçoit la liste des combat_ids dans le nouvel ordre.
+    """
+    # Vérifier que l'aire existe
+    aire = await db.aires_combat.find_one({"aire_id": aire_id}, {"_id": 0})
+    if not aire:
+        raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
+    
+    # Mettre à jour l'ordre de chaque combat
+    for index, combat_id in enumerate(data.combat_ids):
+        await db.combats.update_one(
+            {"combat_id": combat_id, "aire_id": aire_id},
+            {"$set": {"ordre": index + 1}}
+        )
+    
+    return {"message": f"{len(data.combat_ids)} combat(s) réordonnés"}
+
+@api_router.get("/combats/ordre/{aire_id}")
+async def get_combats_ordre(aire_id: str, user: User = Depends(get_current_user)):
+    """Récupère les combats d'une aire dans l'ordre"""
+    combats = await db.combats.find(
+        {"aire_id": aire_id, "termine": False},
+        {"_id": 0}
+    ).sort([("est_finale", 1), ("ordre", 1)]).to_list(200)
+    
+    # Enrichir avec les infos des compétiteurs
+    for combat in combats:
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one(
+                {"competiteur_id": combat["rouge_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["rouge"] = rouge
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one(
+                {"competiteur_id": combat["bleu_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["bleu"] = bleu
+        # Catégorie
+        categorie = await db.categories.find_one(
+            {"categorie_id": combat["categorie_id"]},
+            {"_id": 0, "nom": 1}
+        )
+        combat["categorie"] = categorie
+    
+    return combats
+
+# ============ GESTION FORFAITS / ABSENCES ============
+
+class ForfaitRequest(BaseModel):
+    competiteur_id: str
+    raison: str = "forfait"  # forfait, absence, blessure, disqualification
+
+@api_router.post("/combats/{combat_id}/forfait")
+async def declarer_forfait(combat_id: str, data: ForfaitRequest, user: User = Depends(get_current_user)):
+    """
+    Déclare un forfait pour un combattant.
+    Le combat est automatiquement gagné par l'adversaire.
+    """
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    if combat["termine"]:
+        raise HTTPException(status_code=400, detail="Ce combat est déjà terminé")
+    
+    # Déterminer qui fait forfait et qui gagne
+    if data.competiteur_id == combat.get("rouge_id"):
+        vainqueur_id = combat.get("bleu_id")
+        forfait_couleur = "rouge"
+    elif data.competiteur_id == combat.get("bleu_id"):
+        vainqueur_id = combat.get("rouge_id")
+        forfait_couleur = "bleu"
+    else:
+        raise HTTPException(status_code=400, detail="Ce compétiteur n'est pas dans ce combat")
+    
+    # Mettre à jour le combat
+    update_data = {
+        "type_victoire": data.raison,
+        "termine": True,
+        "statut": "termine"
+    }
+    
+    if vainqueur_id:
+        update_data["vainqueur_id"] = vainqueur_id
+    else:
+        # Si l'adversaire n'est pas encore défini, le combat est annulé
+        update_data["statut"] = "non_dispute"
+    
+    await db.combats.update_one(
+        {"combat_id": combat_id},
+        {"$set": update_data}
+    )
+    
+    # Marquer le compétiteur comme éliminé
+    await db.competiteurs.update_one(
+        {"competiteur_id": data.competiteur_id},
+        {"$set": {"elimine": True, "raison_elimination": data.raison}}
+    )
+    
+    # Propager le vainqueur si défini
+    if vainqueur_id:
+        await propager_vainqueur(combat, vainqueur_id)
+    
+    # Log de l'action
+    await db.historique_resultats.insert_one({
+        "historique_id": f"hist_{uuid.uuid4().hex[:12]}",
+        "combat_id": combat_id,
+        "action": "forfait",
+        "competiteur_id": data.competiteur_id,
+        "raison": data.raison,
+        "modifie_par": user.user_id,
+        "date": datetime.now(timezone.utc).isoformat()
+    })
+    
+    updated = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    return {
+        "message": f"Forfait enregistré ({data.raison})",
+        "combat": updated,
+        "vainqueur_id": vainqueur_id
+    }
+
 # ============ TATAMIS ENDPOINTS (RETRO-COMPATIBILITE) ============
 
 @api_router.get("/tatamis")
