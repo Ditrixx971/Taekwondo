@@ -17,7 +17,10 @@ import {
   PlayCircle,
   Home,
   TreeDeciduous,
-  List
+  List,
+  Crown,
+  UserCheck,
+  Shield
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
