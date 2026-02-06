@@ -202,8 +202,14 @@ export const Layout = ({ children }) => {
                 <p className="font-semibold text-sm text-slate-900 truncate">
                   {user?.name}
                 </p>
-                <p className="text-xs text-slate-500 capitalize">
-                  {user?.role === "admin" ? "Administrateur" : "Coach"}
+                <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
+                  {user?.role === "master" ? (
+                    <><Crown className="h-3 w-3 text-purple-500" /> MASTER</>
+                  ) : user?.role === "admin" ? (
+                    <><Shield className="h-3 w-3 text-blue-500" /> Administrateur</>
+                  ) : (
+                    "Coach"
+                  )}
                 </p>
               </div>
             </div>
