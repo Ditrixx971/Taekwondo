@@ -190,7 +190,7 @@ export default function CompetiteursPage() {
   const handleExportExcel = async () => {
     try {
       const response = await axios.get(
-        `${API}/competiteurs/export/${competition.competition_id}`,
+        `${API}/excel/competiteurs/export/${competition.competition_id}`,
         { 
           withCredentials: true,
           responseType: 'blob'
