@@ -243,8 +243,13 @@ async def get_current_user(request: Request) -> User:
     return User(**user)
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role != "admin":
+    if user.role not in ["admin", "master"]:
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    return user
+
+async def require_master(user: User = Depends(get_current_user)) -> User:
+    if user.role != "master":
+        raise HTTPException(status_code=403, detail="Accès réservé au super-administrateur (MASTER)")
     return user
 
 # ============ AUTH ENDPOINTS ============
