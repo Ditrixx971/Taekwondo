@@ -6,17 +6,17 @@ import { Layout } from "../components/Layout";
 import { useAuth, useCompetition } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
+import { Checkbox } from "../components/ui/checkbox";
+import { Label } from "../components/ui/label";
 import { 
   DndContext, 
   closestCenter, 
   KeyboardSensor, 
   PointerSensor, 
   useSensor, 
-  useSensors,
-  DragEndEvent
+  useSensors
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -36,7 +36,9 @@ import {
   XCircle,
   CheckCircle2,
   ChevronLeft,
-  TreeDeciduous
+  TreeDeciduous,
+  Columns,
+  LayoutGrid
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -44,7 +46,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // Composant pour un combat draggable
-function SortableCombatRow({ combat, index, heureApprox, onForfait }) {
+function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, showAire }) {
   const {
     attributes,
     listeners,
@@ -78,42 +80,51 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait }) {
       ref={setNodeRef}
       style={style}
       className={`
-        flex items-center gap-3 p-3 bg-white border rounded-lg mb-2 
-        ${isDragging ? "shadow-lg ring-2 ring-blue-400" : "shadow-sm"}
+        flex items-center gap-3 p-3 rounded-lg border transition-all
+        ${isDragging ? "shadow-lg bg-white" : "bg-slate-50 hover:bg-slate-100"}
         ${isFinale ? "border-amber-300 bg-amber-50" : "border-slate-200"}
-        ${combat.termine ? "opacity-60" : ""}
+        print:border print:shadow-none print:p-2
       `}
+      data-testid={`combat-row-${combat.combat_id}`}
     >
-      {/* Handle de drag */}
+      {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-100 rounded"
+        className="cursor-grab active:cursor-grabbing print:hidden"
       >
         <GripVertical className="h-5 w-5 text-slate-400" />
       </div>
 
-      {/* Numéro et heure */}
-      <div className="w-16 text-center">
-        <span className="text-lg font-bold text-slate-600">#{index + 1}</span>
-        <p className="text-xs text-slate-400 font-mono">{heureApprox}</p>
+      {/* Numéro d'ordre */}
+      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm">
+        {index + 1}
       </div>
 
+      {/* Heure approximative */}
+      <div className="w-16 text-center">
+        <span className="text-sm font-medium text-slate-600">{heureApprox}</span>
+      </div>
+
+      {/* Aire (si multi-aires) */}
+      {showAire && (
+        <Badge variant="outline" className="w-20 justify-center">
+          {aireNom}
+        </Badge>
+      )}
+
       {/* Tour */}
-      <Badge className={
-        isFinale ? "bg-amber-500" :
-        combat.tour === "demi" ? "bg-blue-500" : "bg-slate-500"
-      }>
+      <Badge className={isFinale ? "bg-amber-500" : "bg-slate-500"}>
         {getTourLabel(combat.tour)}
       </Badge>
 
       {/* Catégorie */}
-      <div className="w-40 text-xs font-medium text-slate-600 truncate">
-        {combat.categorie?.nom || "-"}
+      <div className="text-xs text-slate-500 w-32 truncate">
+        {combat.categorie_nom || "Catégorie"}
       </div>
 
-      {/* Rouge vs Bleu */}
-      <div className="flex-1 flex items-center gap-2">
+      {/* Combattants */}
+      <div className="flex-1 flex gap-2 items-center">
         <div className={`flex-1 p-2 rounded text-center ${
           combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
         }`}>
@@ -125,7 +136,7 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait }) {
           )}
         </div>
 
-        <span className="text-slate-400 font-bold">VS</span>
+        <span className="font-black text-slate-400">VS</span>
 
         <div className={`flex-1 p-2 rounded text-center ${
           combat.vainqueur_id === combat.bleu_id ? "bg-blue-100 ring-2 ring-blue-400" : "bg-blue-50"
@@ -155,7 +166,7 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait }) {
 
       {/* Actions forfait */}
       {!combat.termine && (
-        <div className="flex gap-1">
+        <div className="flex gap-1 print:hidden">
           {combat.rouge_id && (
             <Button
               size="sm"
@@ -184,19 +195,110 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait }) {
   );
 }
 
+// Composant pour une colonne d'aire (vue multi-aires)
+function AireColumn({ aire, combats, heureDebut, dureeCombat, onForfait, onStatusChange, onReorder, isAdmin }) {
+  const calculateHeureApprox = (index) => {
+    const startTime = new Date(`2026-01-01T${heureDebut}:00`);
+    const combatTime = new Date(startTime.getTime() + index * dureeCombat * 60000);
+    return combatTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = combats.findIndex(i => i.combat_id === active.id);
+      const newIndex = combats.findIndex(i => i.combat_id === over.id);
+      onReorder(aire.aire_id, arrayMove(combats, oldIndex, newIndex));
+    }
+  };
+
+  return (
+    <Card className="border-slate-200 flex-1 min-w-[400px]">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            {aire.nom}
+            {aire.statut === "pause" && <Badge className="bg-amber-500">Pause</Badge>}
+            {aire.statut === "hs" && <Badge className="bg-red-500">HS</Badge>}
+          </CardTitle>
+          <Badge variant="outline">{combats.length} combats</Badge>
+        </div>
+        {isAdmin && (
+          <div className="flex gap-1 mt-2">
+            <Button
+              size="sm"
+              variant={aire.statut === "active" ? "default" : "outline"}
+              onClick={() => onStatusChange(aire.aire_id, "active")}
+              className="text-xs"
+            >
+              Active
+            </Button>
+            <Button
+              size="sm"
+              variant={aire.statut === "pause" ? "default" : "outline"}
+              className={`text-xs ${aire.statut === "pause" ? "bg-amber-500" : ""}`}
+              onClick={() => onStatusChange(aire.aire_id, "pause")}
+            >
+              Pause
+            </Button>
+            <Button
+              size="sm"
+              variant={aire.statut === "hs" ? "default" : "outline"}
+              className={`text-xs ${aire.statut === "hs" ? "bg-red-500" : ""}`}
+              onClick={() => onStatusChange(aire.aire_id, "hs")}
+            >
+              HS
+            </Button>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="p-3 max-h-[600px] overflow-y-auto">
+        {combats.length === 0 ? (
+          <p className="text-center text-slate-500 py-8">Aucun combat sur cette aire</p>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={combats.map(c => c.combat_id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {combats.map((combat, index) => (
+                  <SortableCombatRow
+                    key={combat.combat_id}
+                    combat={combat}
+                    index={index}
+                    heureApprox={calculateHeureApprox(index)}
+                    onForfait={onForfait}
+                    showAire={false}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function OrdreCombatsPage() {
   const { isAdmin } = useAuth();
   const { competition } = useCompetition();
   const navigate = useNavigate();
   
   const [aires, setAires] = useState([]);
-  const [selectedAire, setSelectedAire] = useState("");
-  const [combats, setCombats] = useState([]);
+  const [selectedAires, setSelectedAires] = useState([]);
+  const [combatsByAire, setCombatsByAire] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChanges] = useState({});
   const [heureDebut, setHeureDebut] = useState(competition?.heure_debut || "09:00");
   const [dureeCombat, setDureeCombat] = useState(6);
+  const [viewMode, setViewMode] = useState("multi"); // "single" ou "multi"
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -212,10 +314,10 @@ export default function OrdreCombatsPage() {
   }, [competition]);
 
   useEffect(() => {
-    if (selectedAire) {
-      fetchCombats();
+    if (selectedAires.length > 0) {
+      fetchAllCombats();
     }
-  }, [selectedAire]);
+  }, [selectedAires]);
 
   const fetchAires = async () => {
     try {
@@ -224,9 +326,8 @@ export default function OrdreCombatsPage() {
         { withCredentials: true }
       );
       setAires(response.data);
-      if (response.data.length > 0) {
-        setSelectedAire(response.data[0].aire_id);
-      }
+      // Sélectionner toutes les aires par défaut
+      setSelectedAires(response.data.map(a => a.aire_id));
     } catch (error) {
       toast.error("Erreur lors du chargement des aires");
     } finally {
@@ -234,43 +335,62 @@ export default function OrdreCombatsPage() {
     }
   };
 
-  const fetchCombats = async () => {
+  const fetchAllCombats = async () => {
     try {
-      const response = await axios.get(
-        `${API}/combats/ordre/${selectedAire}`,
-        { withCredentials: true }
+      const results = {};
+      await Promise.all(
+        selectedAires.map(async (aireId) => {
+          const response = await axios.get(
+            `${API}/combats/ordre/${aireId}`,
+            { withCredentials: true }
+          );
+          results[aireId] = response.data;
+        })
       );
-      setCombats(response.data);
-      setHasChanges(false);
+      setCombatsByAire(results);
+      setHasChanges({});
     } catch (error) {
       toast.error("Erreur lors du chargement des combats");
     }
   };
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    
-    if (active.id !== over?.id) {
-      setCombats((items) => {
-        const oldIndex = items.findIndex(i => i.combat_id === active.id);
-        const newIndex = items.findIndex(i => i.combat_id === over.id);
-        setHasChanges(true);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
+  const handleAireToggle = (aireId) => {
+    setSelectedAires(prev => {
+      if (prev.includes(aireId)) {
+        return prev.filter(id => id !== aireId);
+      } else {
+        return [...prev, aireId];
+      }
+    });
   };
 
-  const handleSaveOrder = async () => {
+  const handleReorder = (aireId, newCombats) => {
+    setCombatsByAire(prev => ({
+      ...prev,
+      [aireId]: newCombats
+    }));
+    setHasChanges(prev => ({
+      ...prev,
+      [aireId]: true
+    }));
+  };
+
+  const handleSaveAll = async () => {
     setSaving(true);
     try {
-      const combatIds = combats.map(c => c.combat_id);
-      await axios.put(
-        `${API}/combats/reorder/${selectedAire}`,
-        { combat_ids: combatIds },
-        { withCredentials: true }
+      const airesWithChanges = Object.keys(hasChanges).filter(k => hasChanges[k]);
+      await Promise.all(
+        airesWithChanges.map(async (aireId) => {
+          const combatIds = combatsByAire[aireId].map(c => c.combat_id);
+          await axios.put(
+            `${API}/combats/reorder/${aireId}`,
+            { combat_ids: combatIds },
+            { withCredentials: true }
+          );
+        })
       );
-      toast.success("Ordre sauvegardé !");
-      setHasChanges(false);
+      toast.success(`${airesWithChanges.length} aire(s) sauvegardée(s) !`);
+      setHasChanges({});
     } catch (error) {
       toast.error("Erreur lors de la sauvegarde");
     } finally {
@@ -291,16 +411,16 @@ export default function OrdreCombatsPage() {
         { withCredentials: true }
       );
       toast.success("Forfait enregistré");
-      fetchCombats();
+      fetchAllCombats();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur");
     }
   };
 
-  const handleUpdateAireStatus = async (statut) => {
+  const handleUpdateAireStatus = async (aireId, statut) => {
     try {
       await axios.put(
-        `${API}/aires-combat/${selectedAire}`,
+        `${API}/aires-combat/${aireId}`,
         { statut },
         { withCredentials: true }
       );
@@ -311,17 +431,32 @@ export default function OrdreCombatsPage() {
     }
   };
 
-  const calculateHeureApprox = (index) => {
-    const startTime = new Date(`2026-01-01T${heureDebut}:00`);
-    const combatTime = new Date(startTime.getTime() + index * dureeCombat * 60000);
-    return combatTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  };
-
   const handlePrint = () => {
     window.print();
   };
 
-  const currentAire = aires.find(a => a.aire_id === selectedAire);
+  const totalChanges = Object.values(hasChanges).filter(Boolean).length;
+
+  // Fusionner tous les combats pour la vue unifiée
+  const getAllCombatsSorted = () => {
+    const allCombats = [];
+    selectedAires.forEach(aireId => {
+      const aire = aires.find(a => a.aire_id === aireId);
+      (combatsByAire[aireId] || []).forEach((combat, index) => {
+        const startTime = new Date(`2026-01-01T${heureDebut}:00`);
+        const combatTime = new Date(startTime.getTime() + index * dureeCombat * 60000);
+        allCombats.push({
+          ...combat,
+          aireId,
+          aireNom: aire?.nom || "",
+          heureApprox: combatTime
+        });
+      });
+    });
+    // Trier par heure approximative
+    allCombats.sort((a, b) => a.heureApprox - b.heureApprox);
+    return allCombats;
+  };
 
   if (loading) {
     return (
@@ -351,15 +486,17 @@ export default function OrdreCombatsPage() {
               <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
                 Ordre des combats
               </h1>
-              <p className="text-slate-500 mt-1">Glissez-déposez pour réorganiser</p>
+              <p className="text-slate-500 mt-1">
+                {selectedAires.length} aire(s) sélectionnée(s) • Glissez-déposez pour réorganiser
+              </p>
             </div>
           </div>
           
           <div className="flex gap-2">
-            {hasChanges && (
-              <Button onClick={handleSaveOrder} disabled={saving} className="bg-green-600 hover:bg-green-700">
+            {totalChanges > 0 && (
+              <Button onClick={handleSaveAll} disabled={saving} className="bg-green-600 hover:bg-green-700">
                 <Save className="mr-2 h-4 w-4" />
-                {saving ? "Sauvegarde..." : "Sauvegarder"}
+                {saving ? "Sauvegarde..." : `Sauvegarder (${totalChanges})`}
               </Button>
             )}
             <Button variant="outline" onClick={() => navigate(`/arbre-combat`)}>
@@ -382,59 +519,47 @@ export default function OrdreCombatsPage() {
         >
           <Card className="border-slate-200">
             <CardContent className="p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                {/* Sélection aire */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-slate-700">Aire :</label>
-                  <Select value={selectedAire} onValueChange={setSelectedAire}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {aires.map(aire => (
-                        <SelectItem key={aire.aire_id} value={aire.aire_id}>
-                          <div className="flex items-center gap-2">
-                            {aire.nom}
-                            {aire.statut === "pause" && <Badge className="bg-amber-500 text-xs">Pause</Badge>}
-                            {aire.statut === "hs" && <Badge className="bg-red-500 text-xs">HS</Badge>}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="flex flex-wrap items-center gap-6">
+                {/* Sélection des aires */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Aires à afficher :</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {aires.map(aire => (
+                      <div key={aire.aire_id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`aire-${aire.aire_id}`}
+                          checked={selectedAires.includes(aire.aire_id)}
+                          onCheckedChange={() => handleAireToggle(aire.aire_id)}
+                        />
+                        <Label htmlFor={`aire-${aire.aire_id}`} className="text-sm cursor-pointer flex items-center gap-1">
+                          {aire.nom}
+                          {aire.statut === "pause" && <Badge className="bg-amber-500 text-xs">P</Badge>}
+                          {aire.statut === "hs" && <Badge className="bg-red-500 text-xs">HS</Badge>}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Statut de l'aire */}
-                {isAdmin && currentAire && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant={currentAire.statut === "active" ? "default" : "outline"}
-                      onClick={() => handleUpdateAireStatus("active")}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                      Active
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={currentAire.statut === "pause" ? "default" : "outline"}
-                      className={currentAire.statut === "pause" ? "bg-amber-500" : ""}
-                      onClick={() => handleUpdateAireStatus("pause")}
-                    >
-                      <Pause className="h-4 w-4 mr-1" />
-                      Pause
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={currentAire.statut === "hs" ? "default" : "outline"}
-                      className={currentAire.statut === "hs" ? "bg-red-500" : ""}
-                      onClick={() => handleUpdateAireStatus("hs")}
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      HS
-                    </Button>
-                  </div>
-                )}
+                {/* Mode de vue */}
+                <div className="flex items-center gap-2 border-l pl-4">
+                  <Button
+                    size="sm"
+                    variant={viewMode === "multi" ? "default" : "outline"}
+                    onClick={() => setViewMode("multi")}
+                  >
+                    <Columns className="h-4 w-4 mr-1" />
+                    Colonnes
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === "single" ? "default" : "outline"}
+                    onClick={() => setViewMode("single")}
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-1" />
+                    Unifié
+                  </Button>
+                </div>
 
                 {/* Paramètres horaires */}
                 <div className="flex items-center gap-2 ml-auto">
@@ -453,7 +578,7 @@ export default function OrdreCombatsPage() {
                     onChange={(e) => setDureeCombat(parseInt(e.target.value))}
                     className="w-16"
                   />
-                  <span className="text-sm text-slate-500">min</span>
+                  <span className="text-sm text-slate-500">min/combat</span>
                 </div>
               </div>
             </CardContent>
@@ -461,7 +586,7 @@ export default function OrdreCombatsPage() {
         </motion.div>
 
         {/* Avertissement changements non sauvegardés */}
-        {hasChanges && (
+        {totalChanges > 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -471,7 +596,7 @@ export default function OrdreCombatsPage() {
               <CardContent className="p-4 flex items-center gap-3">
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
                 <p className="text-amber-800 font-medium">
-                  Vous avez des modifications non sauvegardées
+                  Vous avez des modifications non sauvegardées sur {totalChanges} aire(s)
                 </p>
               </CardContent>
             </Card>
@@ -482,74 +607,174 @@ export default function OrdreCombatsPage() {
         <div className="hidden print:block text-center mb-6">
           <h1 className="text-2xl font-black uppercase">{competition?.nom}</h1>
           <h2 className="text-lg font-bold mt-1">
-            Ordre des combats - {currentAire?.nom || ""}
+            Ordre des combats - {selectedAires.length} aire(s)
           </h2>
           <p className="text-sm text-slate-500">
             Début : {heureDebut} • Durée par combat : {dureeCombat} min
           </p>
         </div>
 
-        {/* Liste des combats avec drag & drop */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card className="border-slate-200 print:border-0 print:shadow-none">
-            <CardContent className="p-4">
-              {combats.length === 0 ? (
-                <div className="py-12 text-center text-slate-500">
-                  <p>Aucun combat sur cette aire</p>
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={combats.map(c => c.combat_id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {combats.map((combat, index) => (
-                      <SortableCombatRow
-                        key={combat.combat_id}
-                        combat={combat}
-                        index={index}
-                        heureApprox={calculateHeureApprox(index)}
-                        onForfait={handleForfait}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Vue multi-aires (colonnes côte à côte) */}
+        {viewMode === "multi" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex gap-4 overflow-x-auto pb-4"
+          >
+            {selectedAires.map(aireId => {
+              const aire = aires.find(a => a.aire_id === aireId);
+              if (!aire) return null;
+              return (
+                <AireColumn
+                  key={aireId}
+                  aire={aire}
+                  combats={combatsByAire[aireId] || []}
+                  heureDebut={heureDebut}
+                  dureeCombat={dureeCombat}
+                  onForfait={handleForfait}
+                  onStatusChange={handleUpdateAireStatus}
+                  onReorder={handleReorder}
+                  isAdmin={isAdmin}
+                />
+              );
+            })}
+          </motion.div>
+        )}
 
-        {/* Stats */}
+        {/* Vue unifiée (tous les combats triés par heure) */}
+        {viewMode === "single" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="border-slate-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Tous les combats par ordre chronologique
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                {getAllCombatsSorted().length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">Aucun combat programmé</p>
+                ) : (
+                  <div className="space-y-2">
+                    {getAllCombatsSorted().map((combat, index) => (
+                      <div
+                        key={combat.combat_id}
+                        className={`
+                          flex items-center gap-3 p-3 rounded-lg border transition-all
+                          ${combat.tour === "finale" || combat.tour === "bronze" 
+                            ? "border-amber-300 bg-amber-50" 
+                            : "border-slate-200 bg-slate-50"}
+                        `}
+                      >
+                        {/* Numéro */}
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm">
+                          {index + 1}
+                        </div>
+
+                        {/* Heure */}
+                        <div className="w-16 text-center">
+                          <span className="text-sm font-medium text-slate-600">
+                            {combat.heureApprox.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        {/* Aire */}
+                        <Badge variant="outline" className="w-20 justify-center">
+                          {combat.aireNom}
+                        </Badge>
+
+                        {/* Tour */}
+                        <Badge className={combat.tour === "finale" || combat.tour === "bronze" ? "bg-amber-500" : "bg-slate-500"}>
+                          {combat.tour === "quart" ? "1/4" : combat.tour === "demi" ? "1/2" : combat.tour === "finale" ? "Finale" : combat.tour === "bronze" ? "Bronze" : combat.tour}
+                        </Badge>
+
+                        {/* Catégorie */}
+                        <div className="text-xs text-slate-500 w-32 truncate">
+                          {combat.categorie_nom || "Catégorie"}
+                        </div>
+
+                        {/* Combattants */}
+                        <div className="flex-1 flex gap-2 items-center">
+                          <div className={`flex-1 p-2 rounded text-center ${
+                            combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
+                          }`}>
+                            <span className="font-bold text-red-700">
+                              {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
+                            </span>
+                          </div>
+                          <span className="font-black text-slate-400">VS</span>
+                          <div className={`flex-1 p-2 rounded text-center ${
+                            combat.vainqueur_id === combat.bleu_id ? "bg-blue-100 ring-2 ring-blue-400" : "bg-blue-50"
+                          }`}>
+                            <span className="font-bold text-blue-700">
+                              {combat.bleu ? `${combat.bleu.prenom} ${combat.bleu.nom}` : "En attente"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Statut */}
+                        <div className="w-24 text-center">
+                          {combat.termine ? (
+                            <Badge className="bg-green-500">Terminé</Badge>
+                          ) : combat.statut === "en_cours" ? (
+                            <Badge className="bg-blue-500">En cours</Badge>
+                          ) : (
+                            <Badge variant="outline">À venir</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Statistiques */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="print:hidden"
         >
-          <div className="flex justify-center gap-8 text-sm text-slate-500">
-            <span>Total : <strong>{combats.length}</strong> combat(s)</span>
-            <span>Terminés : <strong>{combats.filter(c => c.termine).length}</strong></span>
-            <span>À venir : <strong>{combats.filter(c => !c.termine).length}</strong></span>
-          </div>
+          <Card className="border-slate-200 bg-slate-50">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {Object.values(combatsByAire).flat().length}
+                  </p>
+                  <p className="text-sm text-slate-500">Total combats</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-600">
+                    {Object.values(combatsByAire).flat().filter(c => c.termine).length}
+                  </p>
+                  <p className="text-sm text-slate-500">Terminés</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {Object.values(combatsByAire).flat().filter(c => c.statut === "en_cours").length}
+                  </p>
+                  <p className="text-sm text-slate-500">En cours</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {Object.values(combatsByAire).flat().filter(c => c.tour === "finale" || c.tour === "bronze").length}
+                  </p>
+                  <p className="text-sm text-slate-500">Finales</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
-
-      {/* Styles impression */}
-      <style>{`
-        @media print {
-          @page { size: A4 landscape; margin: 1cm; }
-          .print\\:hidden { display: none !important; }
-          .print\\:block { display: block !important; }
-        }
-      `}</style>
     </Layout>
   );
 }
