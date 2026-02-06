@@ -1913,8 +1913,18 @@ async def get_stats(user: User = Depends(get_current_user)):
 
 @api_router.put("/users/{user_id}/role")
 async def update_user_role(user_id: str, role: str, admin: User = Depends(require_admin)):
-    if role not in ["coach", "admin"]:
+    """Change le rôle d'un utilisateur. Seul un MASTER peut promouvoir en master."""
+    if role not in ["coach", "admin", "master"]:
         raise HTTPException(status_code=400, detail="Rôle invalide")
+    
+    # Seul un master peut promouvoir quelqu'un en master
+    if role == "master" and admin.role != "master":
+        raise HTTPException(status_code=403, detail="Seul un MASTER peut promouvoir en MASTER")
+    
+    # Empêcher de rétrograder un master si on n'est pas master
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "role": 1})
+    if target_user and target_user.get("role") == "master" and admin.role != "master":
+        raise HTTPException(status_code=403, detail="Impossible de modifier le rôle d'un MASTER")
     
     result = await db.users.update_one(
         {"user_id": user_id},
@@ -1930,6 +1940,21 @@ async def update_user_role(user_id: str, role: str, admin: User = Depends(requir
 async def list_users(admin: User = Depends(require_admin)):
     users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
     return users
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, admin: User = Depends(require_master)):
+    """Supprime un utilisateur. Réservé au MASTER."""
+    if user_id == admin.user_id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas vous supprimer vous-même")
+    
+    result = await db.users.delete_one({"user_id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Supprimer aussi les sessions de cet utilisateur
+    await db.user_sessions.delete_many({"user_id": user_id})
+    
+    return {"message": "Utilisateur supprimé"}
 
 # ============ ARBITRE ENDPOINTS ============
 
