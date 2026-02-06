@@ -13,6 +13,7 @@ import CategoriesPage from "./pages/CategoriesPage";
 import AiresCombatPage from "./pages/AiresCombatPage";
 import GestionCombatsPage from "./pages/GestionCombatsPage";
 import ArbitrePage from "./pages/ArbitrePage";
+import ArbitreMultiPage from "./pages/ArbitreMultiPage";
 import ArbreCombatPage from "./pages/ArbreCombatPage";
 import OrdreCombatsPage from "./pages/OrdreCombatsPage";
 import ResultatsPage from "./pages/ResultatsPage";
