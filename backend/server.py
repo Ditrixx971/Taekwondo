@@ -2471,7 +2471,7 @@ async def get_import_template(user: User = Depends(get_current_user)):
         headers={"Content-Disposition": "attachment; filename=template_import_competiteurs.xlsx"}
     )
 
-@api_router.post("/competiteurs/import/{competition_id}")
+@api_router.post("/excel/competiteurs/import/{competition_id}")
 async def import_competiteurs_excel(
     competition_id: str,
     file: UploadFile = File(...),
