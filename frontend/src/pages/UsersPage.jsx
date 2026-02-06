@@ -8,7 +8,15 @@ import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { UserCog, Shield, User } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { UserCog, Shield, User, Crown, Trash2, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -18,6 +26,10 @@ export default function UsersPage() {
   const { isAdmin, user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, user: null });
+  const [deleting, setDeleting] = useState(false);
+
+  const isMaster = currentUser?.role === "master";
 
   useEffect(() => {
     fetchUsers();
@@ -42,6 +54,65 @@ export default function UsersPage() {
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur lors de la mise à jour");
     }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteDialog.user) return;
+    
+    setDeleting(true);
+    try {
+      await axios.delete(`${API}/users/${deleteDialog.user.user_id}`, { withCredentials: true });
+      toast.success("Utilisateur supprimé");
+      setDeleteDialog({ open: false, user: null });
+      fetchUsers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de la suppression");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case "master":
+        return (
+          <Badge className="bg-purple-600">
+            <Crown className="h-3 w-3 mr-1" /> MASTER
+          </Badge>
+        );
+      case "admin":
+        return (
+          <Badge className="bg-blue-600">
+            <Shield className="h-3 w-3 mr-1" /> Administrateur
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary">
+            <User className="h-3 w-3 mr-1" /> Coach
+          </Badge>
+        );
+    }
+  };
+
+  const canChangeRole = (targetUser) => {
+    // On ne peut pas modifier son propre rôle
+    if (targetUser.user_id === currentUser.user_id) return false;
+    // Seul un master peut modifier un master
+    if (targetUser.role === "master" && !isMaster) return false;
+    return true;
+  };
+
+  const getAvailableRoles = (targetUser) => {
+    const roles = [
+      { value: "coach", label: "Coach" },
+      { value: "admin", label: "Administrateur" }
+    ];
+    // Seul un master peut promouvoir en master
+    if (isMaster) {
+      roles.push({ value: "master", label: "MASTER" });
+    }
+    return roles;
   };
 
   if (!isAdmin) {
@@ -100,6 +171,7 @@ export default function UsersPage() {
                       <TableHead>Email</TableHead>
                       <TableHead>Rôle actuel</TableHead>
                       <TableHead>Changer le rôle</TableHead>
+                      {isMaster && <TableHead className="w-20">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -110,6 +182,10 @@ export default function UsersPage() {
                             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
                               {u.picture ? (
                                 <img src={u.picture} alt={u.name} className="w-10 h-10 rounded-full" />
+                              ) : u.role === "master" ? (
+                                <Crown className="h-5 w-5 text-purple-500" />
+                              ) : u.role === "admin" ? (
+                                <Shield className="h-5 w-5 text-blue-500" />
                               ) : (
                                 <User className="h-5 w-5 text-slate-400" />
                               )}
@@ -123,33 +199,43 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell>{u.email}</TableCell>
+                        <TableCell>{getRoleBadge(u.role)}</TableCell>
                         <TableCell>
-                          <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                            {u.role === "admin" ? (
-                              <><Shield className="h-3 w-3 mr-1" /> Administrateur</>
-                            ) : (
-                              <><User className="h-3 w-3 mr-1" /> Coach</>
-                            )}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {u.user_id === currentUser.user_id ? (
+                          {!canChangeRole(u) ? (
                             <span className="text-sm text-slate-400">-</span>
                           ) : (
                             <Select
                               value={u.role}
                               onValueChange={(val) => handleRoleChange(u.user_id, val)}
                             >
-                              <SelectTrigger className="w-40" data-testid={`role-select-${u.user_id}`}>
+                              <SelectTrigger className="w-44" data-testid={`role-select-${u.user_id}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="coach">Coach</SelectItem>
-                                <SelectItem value="admin">Administrateur</SelectItem>
+                                {getAvailableRoles(u).map(role => (
+                                  <SelectItem key={role.value} value={role.value}>
+                                    {role.label}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           )}
                         </TableCell>
+                        {isMaster && (
+                          <TableCell>
+                            {u.user_id !== currentUser.user_id && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => setDeleteDialog({ open: true, user: u })}
+                                data-testid={`delete-user-${u.user_id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -172,8 +258,9 @@ export default function UsersPage() {
                 <div className="text-sm text-blue-700">
                   <p className="font-semibold mb-1">Permissions par rôle :</p>
                   <ul className="space-y-1">
-                    <li><strong>Coach :</strong> Ajouter des compétiteurs, voir les combats et résultats</li>
-                    <li><strong>Administrateur :</strong> Accès complet - gestion des compétiteurs, combats, résultats, médailles et utilisateurs</li>
+                    <li><strong>Coach :</strong> Ajouter des compétiteurs, voir les combats et résultats (pour les compétitions où il est validé)</li>
+                    <li><strong>Administrateur :</strong> Accès complet à toutes les compétitions - gestion des compétiteurs, combats, résultats, médailles et validation des coachs</li>
+                    <li><strong>MASTER :</strong> Super-administrateur - tous les droits + gestion des utilisateurs et suppression de comptes</li>
                   </ul>
                 </div>
               </div>
@@ -181,6 +268,31 @@ export default function UsersPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Dialog de confirmation de suppression */}
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, user: deleteDialog.user })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Supprimer l'utilisateur
+            </DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer <strong>{deleteDialog.user?.name}</strong> ({deleteDialog.user?.email}) ?
+              <br /><br />
+              Cette action est irréversible. Toutes les sessions de cet utilisateur seront également supprimées.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, user: null })}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteUser} disabled={deleting}>
+              {deleting ? "Suppression..." : "Supprimer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
