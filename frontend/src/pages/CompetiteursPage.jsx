@@ -185,6 +185,101 @@ export default function CompetiteursPage() {
     return matchSearch && matchCategorie;
   });
 
+  // ============ IMPORT/EXPORT EXCEL ============
+  
+  const handleExportExcel = async () => {
+    try {
+      const response = await axios.get(
+        `${API}/competiteurs/export/${competition.competition_id}`,
+        { 
+          withCredentials: true,
+          responseType: 'blob'
+        }
+      );
+      
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `competiteurs_${competition.nom.replace(/\s+/g, '_')}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Export réussi !");
+    } catch (error) {
+      toast.error("Erreur lors de l'export");
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await axios.get(
+        `${API}/competiteurs/template`,
+        { 
+          withCredentials: true,
+          responseType: 'blob'
+        }
+      );
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'template_import_competiteurs.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Template téléchargé !");
+    } catch (error) {
+      toast.error("Erreur lors du téléchargement du template");
+    }
+  };
+
+  const handleImportExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setImporting(true);
+    setImportResult(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await axios.post(
+        `${API}/competiteurs/import/${competition.competition_id}`,
+        formData,
+        { 
+          withCredentials: true,
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }
+      );
+      
+      setImportResult(response.data);
+      
+      if (response.data.imported > 0) {
+        toast.success(`${response.data.imported} compétiteur(s) importé(s)`);
+        fetchData();
+      }
+      
+      if (response.data.errors?.length > 0) {
+        toast.warning(`${response.data.total_errors} erreur(s) lors de l'import`);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de l'import");
+      setImportResult({ errors: [error.response?.data?.detail || "Erreur inconnue"], imported: 0 });
+    } finally {
+      setImporting(false);
+      // Reset le input file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
