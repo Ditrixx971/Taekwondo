@@ -928,6 +928,10 @@ async def list_aires_combat(competition_id: Optional[str] = None, user: User = D
         query["competition_id"] = competition_id
     
     aires = await db.aires_combat.find(query, {"_id": 0}).sort("numero", 1).to_list(100)
+    # Assurer que chaque aire a un statut (pour rétrocompatibilité)
+    for aire in aires:
+        if "statut" not in aire:
+            aire["statut"] = "active"
     return aires
 
 @api_router.get("/aires-combat/{aire_id}")
