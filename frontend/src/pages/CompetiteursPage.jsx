@@ -193,7 +193,7 @@ export default function CompetiteursPage() {
     setForm({
       nom: comp.nom,
       prenom: comp.prenom,
-      date_naissance: comp.date_naissance,
+      date_naissance: formatDateFR(comp.date_naissance), // Convertir en format français
       sexe: comp.sexe,
       poids_declare: comp.poids_declare?.toString() || "",
       club: comp.club,
