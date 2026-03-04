@@ -481,18 +481,33 @@ export default function CompetiteursPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date_naissance">Date de naissance</Label>
+                  <Label htmlFor="date_naissance">Date de naissance (JJ/MM/AAAA)</Label>
                   <Input
                     id="date_naissance"
-                    type="date"
+                    type="text"
+                    placeholder="JJ/MM/AAAA"
                     value={form.date_naissance}
-                    onChange={(e) => setForm({ ...form, date_naissance: e.target.value, categorie_surclasse_id: "" })}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      // Auto-format: ajoute les slashes automatiquement
+                      value = value.replace(/[^\d/]/g, ''); // Garde seulement chiffres et /
+                      if (value.length === 2 && !value.includes('/')) value += '/';
+                      if (value.length === 5 && value.split('/').length === 2) value += '/';
+                      if (value.length > 10) value = value.slice(0, 10);
+                      setForm({ ...form, date_naissance: value, categorie_surclasse_id: "" });
+                    }}
                     required
+                    maxLength={10}
                     data-testid="competiteur-date-input"
                   />
-                  {form.date_naissance && (
+                  {form.date_naissance && isValidDateFR(form.date_naissance) && (
                     <p className="text-xs text-slate-500">
-                      Âge: {calculateAge(form.date_naissance)} ans
+                      Âge: {calculateAge(formatDateISO(form.date_naissance))} ans
+                    </p>
+                  )}
+                  {form.date_naissance && !isValidDateFR(form.date_naissance) && form.date_naissance.length === 10 && (
+                    <p className="text-xs text-red-500">
+                      Format invalide. Utilisez JJ/MM/AAAA
                     </p>
                   )}
                 </div>
