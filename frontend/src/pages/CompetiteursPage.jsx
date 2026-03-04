@@ -29,6 +29,43 @@ const initialForm = {
   categorie_surclasse_id: ""
 };
 
+// Fonctions de conversion de date
+const formatDateFR = (dateISO) => {
+  // Convertit YYYY-MM-DD en JJ/MM/AAAA
+  if (!dateISO) return "";
+  const parts = dateISO.split("-");
+  if (parts.length !== 3) return dateISO;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
+const formatDateISO = (dateFR) => {
+  // Convertit JJ/MM/AAAA en YYYY-MM-DD
+  if (!dateFR) return "";
+  const parts = dateFR.split("/");
+  if (parts.length !== 3) return dateFR;
+  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+};
+
+const isValidDateFR = (dateFR) => {
+  // Vérifie si la date est valide au format JJ/MM/AAAA
+  if (!dateFR) return false;
+  const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const match = dateFR.match(regex);
+  if (!match) return false;
+  
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const year = parseInt(match[3], 10);
+  
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  if (year < 1900 || year > 2100) return false;
+  
+  // Vérification plus précise
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+};
+
 export default function CompetiteursPage() {
   const { isAdmin } = useAuth();
   const { competition } = useCompetition();
