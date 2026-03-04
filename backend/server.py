@@ -517,6 +517,7 @@ async def delete_competition(competition_id: str, user: User = Depends(require_a
     await db.competiteurs.delete_many({"competition_id": competition_id})
     await db.categories.delete_many({"competition_id": competition_id})
     await db.tatamis.delete_many({"competition_id": competition_id})
+    await db.aires_combat.delete_many({"competition_id": competition_id})
     await db.medailles.delete_many({"competition_id": competition_id})
     
     result = await db.competitions.delete_one({"competition_id": competition_id})
