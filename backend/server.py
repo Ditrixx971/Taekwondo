@@ -538,6 +538,35 @@ def calculate_age(date_naissance: str) -> int:
     today = datetime.now()
     return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
 
+def date_iso_to_fr(date_iso: str) -> str:
+    """Convertit une date ISO (YYYY-MM-DD) en format français (JJ/MM/AAAA)"""
+    if not date_iso:
+        return ""
+    try:
+        parts = date_iso.split("-")
+        if len(parts) == 3:
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    except:
+        pass
+    return date_iso
+
+def date_fr_to_iso(date_fr: str) -> str:
+    """Convertit une date française (JJ/MM/AAAA) en format ISO (YYYY-MM-DD)"""
+    if not date_fr:
+        return ""
+    try:
+        # Gérer les deux formats possibles
+        if "/" in str(date_fr):
+            parts = str(date_fr).split("/")
+            if len(parts) == 3:
+                return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+        elif "-" in str(date_fr):
+            # Déjà en format ISO
+            return str(date_fr)
+    except:
+        pass
+    return str(date_fr)
+
 async def assign_categorie(competiteur: dict, competition_id: str) -> Optional[str]:
     """Assigne une catégorie basée sur le poids officiel (si pesé) ou déclaré"""
     age = calculate_age(competiteur["date_naissance"])
