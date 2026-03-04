@@ -45,27 +45,27 @@ export default function GestionCombatsPage() {
 
   const fetchData = async () => {
     try {
-      const [catRes, combatsRes, airesRes] = await Promise.all([
+      const [catRes, combatsRes, airesRes, competiteursRes] = await Promise.all([
         axios.get(`${API}/categories?competition_id=${competition.competition_id}`, { withCredentials: true }),
         axios.get(`${API}/combats?competition_id=${competition.competition_id}`, { withCredentials: true }),
-        axios.get(`${API}/aires-combat?competition_id=${competition.competition_id}`, { withCredentials: true })
+        axios.get(`${API}/aires-combat?competition_id=${competition.competition_id}`, { withCredentials: true }),
+        axios.get(`${API}/competiteurs?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
       
-      // Pour chaque catégorie, compter les compétiteurs
-      const catsWithCounts = await Promise.all(catRes.data.map(async (cat) => {
-        const compRes = await axios.get(
-          `${API}/competiteurs?competition_id=${competition.competition_id}`,
-          { withCredentials: true }
-        );
-        const competiteurs = compRes.data.filter(c => c.categorie_id === cat.categorie_id);
-        const catCombats = combatsRes.data.filter(c => c.categorie_id === cat.categorie_id);
+      const allCompetiteurs = competiteursRes.data;
+      const allCombats = combatsRes.data;
+      
+      // Pour chaque catégorie, compter les compétiteurs (sans requête supplémentaire)
+      const catsWithCounts = catRes.data.map((cat) => {
+        const competiteurs = allCompetiteurs.filter(c => c.categorie_id === cat.categorie_id);
+        const catCombats = allCombats.filter(c => c.categorie_id === cat.categorie_id);
         return {
           ...cat,
           nb_competiteurs: competiteurs.length,
           nb_combats: catCombats.length,
           combats_termines: catCombats.filter(c => c.termine).length
         };
-      }));
+      });
       
       // Filtrer les catégories avec au moins 2 compétiteurs
       const validCats = catsWithCounts.filter(c => c.nb_competiteurs >= 2);
