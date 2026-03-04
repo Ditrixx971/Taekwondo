@@ -278,7 +278,7 @@ export default function SelectionCompetitionPage() {
                   >
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
                             {comp.nom}
                           </h3>
@@ -293,7 +293,20 @@ export default function SelectionCompetitionPage() {
                             </span>
                           </div>
                         </div>
-                        <ChevronRight className="h-6 w-6 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                        <div className="flex items-center gap-2">
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                              onClick={(e) => openDeleteDialog(e, comp)}
+                              data-testid={`delete-comp-${comp.competition_id}`}
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </Button>
+                          )}
+                          <ChevronRight className="h-6 w-6 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
