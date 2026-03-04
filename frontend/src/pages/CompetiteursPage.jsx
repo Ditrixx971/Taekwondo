@@ -114,11 +114,12 @@ export default function CompetiteursPage() {
   };
 
   const fetchCategoriesSurclassement = async () => {
-    if (!form.date_naissance || !competition) return;
+    if (!form.date_naissance || !competition || !isValidDateFR(form.date_naissance)) return;
     
     try {
-      // Calculer l'âge
-      const birthDate = new Date(form.date_naissance);
+      // Convertir la date du format FR au format ISO pour le calcul
+      const dateISO = formatDateISO(form.date_naissance);
+      const birthDate = new Date(dateISO);
       const today = new Date();
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
