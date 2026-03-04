@@ -2796,11 +2796,20 @@ async def import_competiteurs_excel(
                 if isinstance(date_naissance, datetime):
                     date_naissance = date_naissance.strftime("%Y-%m-%d")
                 else:
-                    date_naissance = str(date_naissance).strip()
+                    date_str = str(date_naissance).strip()
+                    # Convertir du format français JJ/MM/AAAA au format ISO
+                    date_naissance = date_fr_to_iso(date_str)
                 
                 # Valider le sexe
                 if sexe not in ["M", "F"]:
                     errors.append(f"Ligne {row_idx}: Sexe invalide '{sexe}' (doit être M ou F)")
+                    continue
+                
+                # Valider la date
+                try:
+                    datetime.strptime(date_naissance, "%Y-%m-%d")
+                except ValueError:
+                    errors.append(f"Ligne {row_idx}: Date de naissance invalide '{date_naissance}' (format: JJ/MM/AAAA)")
                     continue
                 
                 # Créer le compétiteur
