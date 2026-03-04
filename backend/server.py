@@ -2607,7 +2607,9 @@ async def export_competiteurs_excel(competition_id: str, user: User = Depends(ge
     for row, comp in enumerate(competiteurs, 2):
         ws.cell(row=row, column=1, value=comp.get("nom", "")).border = thin_border
         ws.cell(row=row, column=2, value=comp.get("prenom", "")).border = thin_border
-        ws.cell(row=row, column=3, value=comp.get("date_naissance", "")).border = thin_border
+        # Convertir la date au format français JJ/MM/AAAA
+        date_fr = date_iso_to_fr(comp.get("date_naissance", ""))
+        ws.cell(row=row, column=3, value=date_fr).border = thin_border
         ws.cell(row=row, column=4, value=comp.get("sexe", "")).border = thin_border
         ws.cell(row=row, column=5, value=comp.get("poids_declare", "")).border = thin_border
         ws.cell(row=row, column=6, value=comp.get("poids_officiel", "")).border = thin_border
