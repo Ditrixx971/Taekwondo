@@ -150,9 +150,17 @@ export default function CompetiteursPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Valider le format de date
+    if (!isValidDateFR(form.date_naissance)) {
+      toast.error("Format de date invalide. Utilisez JJ/MM/AAAA");
+      return;
+    }
+    
     try {
       const payload = { 
         ...form, 
+        date_naissance: formatDateISO(form.date_naissance), // Convertir en ISO pour le backend
         poids_declare: parseFloat(form.poids_declare),
         competition_id: competition.competition_id,
         surclasse: form.surclasse,
