@@ -97,6 +97,36 @@ export default function SelectionCompetitionPage() {
     }
   };
 
+  const handleDeleteCompetition = async () => {
+    if (!deleteDialog.competition) return;
+    
+    setDeleting(true);
+    try {
+      await axios.delete(
+        `${API}/competitions/${deleteDialog.competition.competition_id}`,
+        { withCredentials: true }
+      );
+      toast.success("Compétition supprimée avec succès");
+      setDeleteDialog({ open: false, competition: null });
+      
+      // Si c'était la compétition active, la désélectionner
+      if (competition?.competition_id === deleteDialog.competition.competition_id) {
+        clearCompetition();
+      }
+      
+      fetchCompetitions();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de la suppression");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openDeleteDialog = (e, comp) => {
+    e.stopPropagation(); // Empêcher la sélection de la compétition
+    setDeleteDialog({ open: true, competition: comp });
+  };
+
   // Si une compétition est déjà sélectionnée, afficher un résumé
   if (competition) {
     return (
