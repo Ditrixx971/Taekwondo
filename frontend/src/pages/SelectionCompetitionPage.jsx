@@ -410,6 +410,50 @@ export default function SelectionCompetitionPage() {
             </div>
           )}
         </div>
+
+        {/* Dialog de confirmation de suppression */}
+        <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, competition: deleteDialog.competition })}>
+          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="h-5 w-5" />
+                Supprimer la compétition
+              </DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Êtes-vous sûr de vouloir supprimer la compétition <strong className="text-white">{deleteDialog.competition?.nom}</strong> ?
+                <br /><br />
+                <span className="text-red-400 font-medium">
+                  ⚠️ Cette action est irréversible et supprimera également :
+                </span>
+                <ul className="list-disc list-inside mt-2 text-slate-400">
+                  <li>Tous les compétiteurs inscrits</li>
+                  <li>Toutes les catégories</li>
+                  <li>Tous les combats générés</li>
+                  <li>Toutes les médailles attribuées</li>
+                  <li>Toutes les aires de combat</li>
+                </ul>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-4">
+              <Button 
+                variant="outline" 
+                className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                onClick={() => setDeleteDialog({ open: false, competition: null })}
+              >
+                Annuler
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteCompetition}
+                disabled={deleting}
+                data-testid="confirm-delete-comp-btn"
+              >
+                {deleting ? "Suppression..." : "Supprimer définitivement"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
