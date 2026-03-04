@@ -35,6 +35,8 @@ export default function SelectionCompetitionPage() {
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, competition: null });
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     nom: "",
     date: "",
