@@ -2666,11 +2666,11 @@ async def get_import_template(user: User = Depends(get_current_user)):
         cell.border = thin_border
         cell.alignment = Alignment(horizontal="center")
     
-    # Ajouter des exemples
+    # Ajouter des exemples avec format français JJ/MM/AAAA
     example_data = [
-        ["DUPONT", "Jean", "2010-05-15", "M", 35.5, "Taekwondo Club Paris", "Non"],
-        ["MARTIN", "Marie", "2012-08-20", "F", 28.0, "Taekwondo Club Lyon", "Non"],
-        ["DURAND", "Pierre", "2008-03-10", "M", 45.0, "Taekwondo Club Marseille", "Oui"],
+        ["DUPONT", "Jean", "15/05/2010", "M", 35.5, "Taekwondo Club Paris", "Non"],
+        ["MARTIN", "Marie", "20/08/2012", "F", 28.0, "Taekwondo Club Lyon", "Non"],
+        ["DURAND", "Pierre", "10/03/2008", "M", 45.0, "Taekwondo Club Marseille", "Oui"],
     ]
     
     for row, data in enumerate(example_data, 2):
