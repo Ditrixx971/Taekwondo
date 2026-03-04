@@ -2703,7 +2703,7 @@ async def get_import_template(user: User = Depends(get_current_user)):
         "Colonnes obligatoires (marquées *):",
         "- Nom: Nom de famille du compétiteur",
         "- Prénom: Prénom du compétiteur",
-        "- Date de naissance: Format AAAA-MM-JJ (ex: 2010-05-15)",
+        "- Date de naissance: Format JJ/MM/AAAA (ex: 15/05/2010)",
         "- Sexe: M pour Masculin, F pour Féminin",
         "- Poids déclaré: Poids en kg (ex: 35.5)",
         "- Club: Nom du club",
