@@ -8,6 +8,7 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - Répartir automatiquement les combats sur plusieurs aires de combat
 - Permettre la validation des coachs par compétition
 - Supporter l'import/export Excel des compétiteurs
+- **Module Combat Manuel**: Permettre la création, modification et connexion manuelle des combats
 
 ## User Personas
 1. **MASTER (Super-admin)**: Gestion totale - tous les droits admin + suppression d'utilisateurs
@@ -85,6 +86,20 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Import: Upload d'un fichier Excel avec création automatique des compétiteurs
 - **Page UsersPage améliorée**: Support des 3 rôles, suppression d'utilisateurs (MASTER only)
 
+### Phase 8 (21 Mar 2026) - MODULE COMBAT MANUEL - Backend ✅
+- **Modèle Combat étendu**: Nouveaux champs pour connexions manuelles
+  - `mode_creation`: "auto" ou "manuel"
+  - `combat_suivant_id`: ID du combat où le vainqueur va
+  - `combat_suivant_slot`: "rouge" ou "bleu"
+  - `combat_source_rouge_id`, `combat_source_bleu_id`: Sources des combattants
+  - `pret`: Statut si le combat est prêt (deux combattants définis)
+  - `nom_personnalise`: Nom personnalisé pour le combat
+- **CRUD Combats Manuels**: Création, modification, suppression
+- **Système de connexion**: Connecter/déconnecter les combats entre eux
+- **Propagation vainqueur**: Via connexions manuelles OU automatique
+- **Distribution automatique**: Round-robin sur les aires actives
+- **API "Combats prêts"**: Liste les combats prêts à être lancés
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs
@@ -116,22 +131,40 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 ### Arbre de Combat
 - `GET /api/combats/arbre/{categorie_id}` - Données de l'arbre (quarts, demis, finale, bronze)
 
+### Combats Manuels (NOUVEAU)
+- `POST /api/combats-manuels` - Créer un combat manuel
+- `PUT /api/combats-manuels/{combat_id}` - Modifier un combat manuel
+- `DELETE /api/combats-manuels/{combat_id}` - Supprimer un combat manuel
+- `POST /api/combats-manuels/connecter` - Connecter le vainqueur d'un combat vers un autre
+- `POST /api/combats-manuels/deconnecter` - Déconnecter une connexion
+- `GET /api/combats-manuels/prets/{competition_id}` - Combats prêts à être lancés
+- `GET /api/combats-manuels/non-assignes/{competition_id}` - Combats prêts non assignés
+- `POST /api/combats-manuels/assigner-aire` - Assigner un combat à une aire
+- `POST /api/combats-manuels/distribution-auto/{competition_id}` - Distribution round-robin
+- `GET /api/combats-manuels/arbre/{categorie_id}` - Arbre avec connexions pour UI graphique
+
 ## Test Credentials
 - **Admin**: admin2@test.com / admin123
 - **Coach**: coach_test@test.com / coach123
-- **Competition test**: comp_535694c8e8dc (Open de Paris 2026)
+- **Competition test**: comp_52f906b963d6 (OPEN PETIT BOURG)
 
 ## Test Status
-- **Backend**: 100% (iteration_6.json - 19/19 tests)
+- **Backend**: 100% (iteration_7.json - 26/26 tests Combat Manuel)
 - **Frontend**: 100%
 - **Test files**: 
   - `/app/backend/tests/test_aires_combat_arbitre.py`
   - `/app/backend/tests/test_phase1_features.py`
   - `/app/backend/tests/test_phase2_features.py`
+  - `/app/backend/tests/test_combats_manuels.py` (NOUVEAU)
 
 ## Backlog
 
-### P1 (Phase 3 - Haute priorité)
+### P0 (Module Combat Manuel - En cours)
+- [x] Phase 1 - Backend: Modèles et endpoints (TERMINÉ)
+- [ ] Phase 2 - Frontend: Éditeur visuel graphique (drag & drop)
+- [ ] Phase 3 - Logique de flux continu: Distribution automatique vers les aires
+
+### P1 (Haute priorité)
 - [ ] Rapports et statistiques (classement des clubs, médailles par club)
 - [ ] Export PDF/Excel des résultats
 - [ ] Amélioration des filtres sur la page des catégories
