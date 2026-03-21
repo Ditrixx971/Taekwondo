@@ -177,12 +177,59 @@ class Combat(BaseModel):
     duree_minutes: int = 6  # durée estimée en minutes
     est_pause: bool = False  # si c'est un créneau de pause
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # ============ CHAMPS POUR COMBATS MANUELS ============
+    mode_creation: str = "auto"  # auto (tirage au sort) ou manuel
+    combat_suivant_id: Optional[str] = None  # Combat où le vainqueur doit aller
+    combat_suivant_slot: Optional[str] = None  # "rouge" ou "bleu" - position dans le combat suivant
+    combat_source_rouge_id: Optional[str] = None  # Combat dont le vainqueur devient rouge
+    combat_source_bleu_id: Optional[str] = None  # Combat dont le vainqueur devient bleu  
+    pret: bool = False  # Si le combat est prêt (deux combattants définis et disponibles)
+    nom_personnalise: Optional[str] = None  # Nom personnalisé pour le combat (ex: "Finale consolante")
 
 class CombatResultat(BaseModel):
     vainqueur_id: str
     score_rouge: int = 0
     score_bleu: int = 0
     type_victoire: str = "normal"
+
+# ============ MODÈLES POUR COMBATS MANUELS ============
+
+class CombatManuelCreate(BaseModel):
+    """Création d'un combat manuel"""
+    competition_id: str
+    categorie_id: str
+    tour: str = "manuel"  # Type de tour ou "manuel"
+    position: int = 1
+    rouge_id: Optional[str] = None  # Compétiteur rouge (optionnel si connexion)
+    bleu_id: Optional[str] = None  # Compétiteur bleu (optionnel si connexion)
+    nom_personnalise: Optional[str] = None  # Nom personnalisé
+    aire_id: Optional[str] = None  # Aire assignée
+
+class CombatManuelUpdate(BaseModel):
+    """Mise à jour d'un combat manuel"""
+    tour: Optional[str] = None
+    position: Optional[int] = None
+    rouge_id: Optional[str] = None
+    bleu_id: Optional[str] = None
+    nom_personnalise: Optional[str] = None
+    aire_id: Optional[str] = None
+    ordre: Optional[int] = None
+
+class ConnexionCombatRequest(BaseModel):
+    """Connecter le vainqueur d'un combat vers un autre"""
+    combat_source_id: str  # Combat dont le vainqueur sera envoyé
+    combat_destination_id: str  # Combat où le vainqueur ira
+    slot_destination: str  # "rouge" ou "bleu"
+
+class DeconnexionCombatRequest(BaseModel):
+    """Déconnecter un combat source d'un slot"""
+    combat_destination_id: str
+    slot: str  # "rouge" ou "bleu"
+
+class AssignerAireRequest(BaseModel):
+    """Assigner un combat à une aire"""
+    combat_id: str
+    aire_id: str
 
 class PlanificationCreate(BaseModel):
     heure_debut_competition: str  # ISO format ex: "09:00"
@@ -1846,7 +1893,12 @@ async def saisir_resultat(combat_id: str, data: CombatResultat, user: User = Dep
     return updated
 
 async def propager_vainqueur(combat: dict, vainqueur_id: str):
-    """Propage le vainqueur au combat suivant"""
+    """
+    Propage le vainqueur au combat suivant.
+    Supporte à la fois:
+    - Le système automatique (basé sur tour/position)
+    - Le système manuel (basé sur combat_suivant_id/combat_suivant_slot)
+    """
     categorie_id = combat["categorie_id"]
     tour = combat["tour"]
     position = combat["position"]
@@ -1854,6 +1906,19 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
     # Trouver le perdant pour le match bronze
     perdant_id = combat["rouge_id"] if vainqueur_id == combat["bleu_id"] else combat["bleu_id"]
     
+    # ========== PROPAGATION MANUELLE ==========
+    # Si le combat a une connexion manuelle définie, l'utiliser en priorité
+    if combat.get("combat_suivant_id") and combat.get("combat_suivant_slot"):
+        field = "rouge_id" if combat["combat_suivant_slot"] == "rouge" else "bleu_id"
+        await db.combats.update_one(
+            {"combat_id": combat["combat_suivant_id"]},
+            {"$set": {field: vainqueur_id}}
+        )
+        # Mettre à jour le statut prêt du combat suivant
+        await update_combat_pret_status(combat["combat_suivant_id"])
+        return  # Terminé pour les connexions manuelles
+    
+    # ========== PROPAGATION AUTOMATIQUE (système existant) ==========
     if tour == "quart":
         # Vers demi-finale
         demi_position = (position + 1) // 2
@@ -1869,6 +1934,7 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
                 {"combat_id": demi["combat_id"]},
                 {"$set": {field: vainqueur_id}}
             )
+            await update_combat_pret_status(demi["combat_id"])
     
     elif tour == "demi":
         # Vers finale
@@ -1883,6 +1949,7 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
                 {"combat_id": finale["combat_id"]},
                 {"$set": {field: vainqueur_id}}
             )
+            await update_combat_pret_status(finale["combat_id"])
         
         # Vers match bronze (perdant)
         bronze = await db.combats.find_one({
@@ -1899,6 +1966,7 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
                     {"combat_id": bronze["combat_id"]},
                     {"$set": {field: perdant_id}}
                 )
+                await update_combat_pret_status(bronze["combat_id"])
 
 @api_router.post("/combats/{categorie_id}/attribuer-medailles")
 async def attribuer_medailles(categorie_id: str, user: User = Depends(require_admin)):
@@ -2848,6 +2916,597 @@ async def import_competiteurs_excel(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erreur lors de la lecture du fichier: {str(e)}")
+
+# ============ COMBATS MANUELS ENDPOINTS ============
+
+async def check_combat_pret(combat_id: str) -> bool:
+    """
+    Vérifie si un combat est prêt à être lancé.
+    Un combat est prêt si:
+    - Les deux combattants sont définis (rouge_id et bleu_id)
+    - Les combattants ne sont pas disqualifiés
+    - Le combat n'est pas déjà terminé ou en cours
+    """
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        return False
+    
+    if combat.get("termine") or combat.get("statut") in ["en_cours", "termine"]:
+        return False
+    
+    rouge_id = combat.get("rouge_id")
+    bleu_id = combat.get("bleu_id")
+    
+    if not rouge_id or not bleu_id:
+        return False
+    
+    # Vérifier que les compétiteurs existent et ne sont pas disqualifiés
+    rouge = await db.competiteurs.find_one({"competiteur_id": rouge_id}, {"_id": 0})
+    bleu = await db.competiteurs.find_one({"competiteur_id": bleu_id}, {"_id": 0})
+    
+    if not rouge or not bleu:
+        return False
+    
+    if rouge.get("disqualifie") or bleu.get("disqualifie"):
+        return False
+    
+    return True
+
+async def update_combat_pret_status(combat_id: str):
+    """Met à jour le statut 'pret' d'un combat"""
+    pret = await check_combat_pret(combat_id)
+    await db.combats.update_one(
+        {"combat_id": combat_id},
+        {"$set": {"pret": pret}}
+    )
+    return pret
+
+async def propager_vainqueur_manuel(combat: dict, vainqueur_id: str):
+    """
+    Propage le vainqueur vers le combat suivant (version pour combats manuels).
+    Utilise les champs combat_suivant_id et combat_suivant_slot.
+    """
+    combat_suivant_id = combat.get("combat_suivant_id")
+    combat_suivant_slot = combat.get("combat_suivant_slot")
+    
+    if combat_suivant_id and combat_suivant_slot:
+        field = "rouge_id" if combat_suivant_slot == "rouge" else "bleu_id"
+        await db.combats.update_one(
+            {"combat_id": combat_suivant_id},
+            {"$set": {field: vainqueur_id}}
+        )
+        # Mettre à jour le statut prêt du combat suivant
+        await update_combat_pret_status(combat_suivant_id)
+
+@api_router.post("/combats-manuels")
+async def create_combat_manuel(data: CombatManuelCreate, user: User = Depends(require_admin)):
+    """
+    Crée un nouveau combat en mode manuel.
+    Permet de définir directement les combattants ou de laisser vide pour connexion ultérieure.
+    """
+    # Vérifier que la compétition existe
+    competition = await db.competitions.find_one({"competition_id": data.competition_id}, {"_id": 0})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Compétition non trouvée")
+    
+    # Vérifier que la catégorie existe
+    categorie = await db.categories.find_one({"categorie_id": data.categorie_id}, {"_id": 0})
+    if not categorie:
+        raise HTTPException(status_code=404, detail="Catégorie non trouvée")
+    
+    # Vérifier les compétiteurs si fournis
+    if data.rouge_id:
+        rouge = await db.competiteurs.find_one({"competiteur_id": data.rouge_id}, {"_id": 0})
+        if not rouge:
+            raise HTTPException(status_code=404, detail="Compétiteur rouge non trouvé")
+    
+    if data.bleu_id:
+        bleu = await db.competiteurs.find_one({"competiteur_id": data.bleu_id}, {"_id": 0})
+        if not bleu:
+            raise HTTPException(status_code=404, detail="Compétiteur bleu non trouvé")
+    
+    # Calculer l'ordre maximum actuel pour cette catégorie
+    max_ordre = await db.combats.find_one(
+        {"categorie_id": data.categorie_id},
+        {"_id": 0, "ordre": 1},
+        sort=[("ordre", -1)]
+    )
+    nouvel_ordre = (max_ordre.get("ordre", 0) if max_ordre else 0) + 1
+    
+    # Créer le combat
+    combat = Combat(
+        competition_id=data.competition_id,
+        categorie_id=data.categorie_id,
+        tour=data.tour,
+        position=data.position,
+        ordre=nouvel_ordre,
+        rouge_id=data.rouge_id,
+        bleu_id=data.bleu_id,
+        nom_personnalise=data.nom_personnalise,
+        aire_id=data.aire_id,
+        mode_creation="manuel",
+        pret=bool(data.rouge_id and data.bleu_id)
+    )
+    
+    combat_dict = combat.model_dump()
+    combat_dict["created_at"] = combat_dict["created_at"].isoformat()
+    
+    await db.combats.insert_one(combat_dict)
+    combat_dict.pop("_id", None)
+    
+    return combat_dict
+
+@api_router.put("/combats-manuels/{combat_id}")
+async def update_combat_manuel(combat_id: str, data: CombatManuelUpdate, user: User = Depends(require_admin)):
+    """
+    Met à jour un combat manuel.
+    Permet de modifier les combattants, le tour, la position, etc.
+    """
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    if combat.get("termine"):
+        raise HTTPException(status_code=400, detail="Impossible de modifier un combat terminé")
+    
+    # Préparer les données de mise à jour
+    update_data = {}
+    
+    if data.tour is not None:
+        update_data["tour"] = data.tour
+    if data.position is not None:
+        update_data["position"] = data.position
+    if data.nom_personnalise is not None:
+        update_data["nom_personnalise"] = data.nom_personnalise
+    if data.aire_id is not None:
+        update_data["aire_id"] = data.aire_id
+    if data.ordre is not None:
+        update_data["ordre"] = data.ordre
+    
+    # Gestion des combattants
+    if data.rouge_id is not None:
+        if data.rouge_id == "":
+            update_data["rouge_id"] = None
+        else:
+            rouge = await db.competiteurs.find_one({"competiteur_id": data.rouge_id}, {"_id": 0})
+            if not rouge:
+                raise HTTPException(status_code=404, detail="Compétiteur rouge non trouvé")
+            update_data["rouge_id"] = data.rouge_id
+    
+    if data.bleu_id is not None:
+        if data.bleu_id == "":
+            update_data["bleu_id"] = None
+        else:
+            bleu = await db.competiteurs.find_one({"competiteur_id": data.bleu_id}, {"_id": 0})
+            if not bleu:
+                raise HTTPException(status_code=404, detail="Compétiteur bleu non trouvé")
+            update_data["bleu_id"] = data.bleu_id
+    
+    if update_data:
+        await db.combats.update_one(
+            {"combat_id": combat_id},
+            {"$set": update_data}
+        )
+    
+    # Mettre à jour le statut prêt
+    await update_combat_pret_status(combat_id)
+    
+    updated = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/combats-manuels/{combat_id}")
+async def delete_combat_manuel(combat_id: str, user: User = Depends(require_admin)):
+    """
+    Supprime un combat manuel.
+    Déconnecte automatiquement les combats liés.
+    """
+    combat = await db.combats.find_one({"combat_id": combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    if combat.get("termine"):
+        raise HTTPException(status_code=400, detail="Impossible de supprimer un combat terminé")
+    
+    # Si ce combat est une source pour un autre, déconnecter
+    await db.combats.update_many(
+        {"combat_source_rouge_id": combat_id},
+        {"$set": {"combat_source_rouge_id": None, "rouge_id": None}}
+    )
+    await db.combats.update_many(
+        {"combat_source_bleu_id": combat_id},
+        {"$set": {"combat_source_bleu_id": None, "bleu_id": None}}
+    )
+    
+    # Déconnecter du combat suivant si lié
+    if combat.get("combat_suivant_id"):
+        await db.combats.update_one(
+            {"combat_id": combat.get("combat_suivant_id")},
+            {"$set": {
+                f"combat_source_{combat.get('combat_suivant_slot')}_id": None
+            }}
+        )
+    
+    # Supprimer le combat
+    await db.combats.delete_one({"combat_id": combat_id})
+    
+    # Mettre à jour les statuts prêts des combats affectés
+    combats_affectes = await db.combats.find(
+        {"$or": [
+            {"combat_source_rouge_id": combat_id},
+            {"combat_source_bleu_id": combat_id}
+        ]},
+        {"_id": 0, "combat_id": 1}
+    ).to_list(100)
+    
+    for c in combats_affectes:
+        await update_combat_pret_status(c["combat_id"])
+    
+    return {"message": "Combat supprimé", "combat_id": combat_id}
+
+@api_router.post("/combats-manuels/connecter")
+async def connecter_combats(data: ConnexionCombatRequest, user: User = Depends(require_admin)):
+    """
+    Connecte le vainqueur d'un combat source vers un slot d'un combat destination.
+    
+    Exemple: Après combat A, le vainqueur va en position "rouge" du combat B.
+    """
+    if data.slot_destination not in ["rouge", "bleu"]:
+        raise HTTPException(status_code=400, detail="Le slot doit être 'rouge' ou 'bleu'")
+    
+    # Vérifier que les combats existent
+    combat_source = await db.combats.find_one({"combat_id": data.combat_source_id}, {"_id": 0})
+    if not combat_source:
+        raise HTTPException(status_code=404, detail="Combat source non trouvé")
+    
+    combat_destination = await db.combats.find_one({"combat_id": data.combat_destination_id}, {"_id": 0})
+    if not combat_destination:
+        raise HTTPException(status_code=404, detail="Combat destination non trouvé")
+    
+    # Vérifier qu'ils appartiennent à la même compétition
+    if combat_source["competition_id"] != combat_destination["competition_id"]:
+        raise HTTPException(status_code=400, detail="Les combats doivent appartenir à la même compétition")
+    
+    # Vérifier que le slot n'est pas déjà occupé par une connexion
+    source_field = f"combat_source_{data.slot_destination}_id"
+    if combat_destination.get(source_field):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Le slot {data.slot_destination} est déjà connecté à un autre combat"
+        )
+    
+    # Mettre à jour le combat source avec la destination
+    await db.combats.update_one(
+        {"combat_id": data.combat_source_id},
+        {"$set": {
+            "combat_suivant_id": data.combat_destination_id,
+            "combat_suivant_slot": data.slot_destination
+        }}
+    )
+    
+    # Mettre à jour le combat destination avec la source
+    await db.combats.update_one(
+        {"combat_id": data.combat_destination_id},
+        {"$set": {source_field: data.combat_source_id}}
+    )
+    
+    # Si le combat source est déjà terminé, propager le vainqueur
+    if combat_source.get("termine") and combat_source.get("vainqueur_id"):
+        field = "rouge_id" if data.slot_destination == "rouge" else "bleu_id"
+        await db.combats.update_one(
+            {"combat_id": data.combat_destination_id},
+            {"$set": {field: combat_source["vainqueur_id"]}}
+        )
+        await update_combat_pret_status(data.combat_destination_id)
+    
+    return {
+        "message": "Combats connectés",
+        "source": data.combat_source_id,
+        "destination": data.combat_destination_id,
+        "slot": data.slot_destination
+    }
+
+@api_router.post("/combats-manuels/deconnecter")
+async def deconnecter_combat(data: DeconnexionCombatRequest, user: User = Depends(require_admin)):
+    """
+    Déconnecte un combat source d'un slot de destination.
+    """
+    if data.slot not in ["rouge", "bleu"]:
+        raise HTTPException(status_code=400, detail="Le slot doit être 'rouge' ou 'bleu'")
+    
+    combat_destination = await db.combats.find_one({"combat_id": data.combat_destination_id}, {"_id": 0})
+    if not combat_destination:
+        raise HTTPException(status_code=404, detail="Combat destination non trouvé")
+    
+    source_field = f"combat_source_{data.slot}_id"
+    combat_source_id = combat_destination.get(source_field)
+    
+    if not combat_source_id:
+        raise HTTPException(status_code=400, detail=f"Aucun combat connecté au slot {data.slot}")
+    
+    # Déconnecter le combat source
+    await db.combats.update_one(
+        {"combat_id": combat_source_id},
+        {"$set": {"combat_suivant_id": None, "combat_suivant_slot": None}}
+    )
+    
+    # Nettoyer le combat destination
+    competiteur_field = "rouge_id" if data.slot == "rouge" else "bleu_id"
+    await db.combats.update_one(
+        {"combat_id": data.combat_destination_id},
+        {"$set": {
+            source_field: None,
+            competiteur_field: None
+        }}
+    )
+    
+    await update_combat_pret_status(data.combat_destination_id)
+    
+    return {
+        "message": "Connexion supprimée",
+        "destination": data.combat_destination_id,
+        "slot": data.slot
+    }
+
+@api_router.get("/combats-manuels/prets/{competition_id}")
+async def get_combats_prets(competition_id: str, user: User = Depends(get_current_user)):
+    """
+    Liste tous les combats prêts à être lancés pour une compétition.
+    Un combat est prêt si les deux combattants sont définis et non disqualifiés.
+    """
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    # Mettre à jour le statut prêt de tous les combats non terminés
+    combats_a_verifier = await db.combats.find(
+        {"competition_id": competition_id, "termine": False},
+        {"_id": 0, "combat_id": 1}
+    ).to_list(1000)
+    
+    for c in combats_a_verifier:
+        await update_combat_pret_status(c["combat_id"])
+    
+    # Récupérer les combats prêts
+    combats = await db.combats.find(
+        {
+            "competition_id": competition_id,
+            "pret": True,
+            "termine": False,
+            "statut": "a_venir"
+        },
+        {"_id": 0}
+    ).sort([("ordre", 1)]).to_list(500)
+    
+    # Enrichir avec les infos des compétiteurs et catégories
+    for combat in combats:
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one(
+                {"competiteur_id": combat["rouge_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["rouge"] = rouge
+        
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one(
+                {"competiteur_id": combat["bleu_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["bleu"] = bleu
+        
+        categorie = await db.categories.find_one(
+            {"categorie_id": combat["categorie_id"]},
+            {"_id": 0, "nom": 1}
+        )
+        combat["categorie_nom"] = categorie["nom"] if categorie else "Inconnue"
+        
+        if combat.get("aire_id"):
+            aire = await db.aires_combat.find_one(
+                {"aire_id": combat["aire_id"]},
+                {"_id": 0, "nom": 1, "numero": 1}
+            )
+            combat["aire"] = aire
+    
+    return combats
+
+@api_router.get("/combats-manuels/non-assignes/{competition_id}")
+async def get_combats_non_assignes(competition_id: str, user: User = Depends(get_current_user)):
+    """
+    Liste les combats prêts mais non assignés à une aire de combat.
+    """
+    if not await user_can_access_competition(user, competition_id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    combats = await db.combats.find(
+        {
+            "competition_id": competition_id,
+            "pret": True,
+            "termine": False,
+            "statut": "a_venir",
+            "$or": [{"aire_id": None}, {"aire_id": ""}]
+        },
+        {"_id": 0}
+    ).sort([("ordre", 1)]).to_list(500)
+    
+    # Enrichir
+    for combat in combats:
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one(
+                {"competiteur_id": combat["rouge_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["rouge"] = rouge
+        
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one(
+                {"competiteur_id": combat["bleu_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["bleu"] = bleu
+        
+        categorie = await db.categories.find_one(
+            {"categorie_id": combat["categorie_id"]},
+            {"_id": 0, "nom": 1}
+        )
+        combat["categorie_nom"] = categorie["nom"] if categorie else "Inconnue"
+    
+    return combats
+
+@api_router.post("/combats-manuels/assigner-aire")
+async def assigner_combat_aire(data: AssignerAireRequest, user: User = Depends(require_admin)):
+    """
+    Assigne un combat à une aire de combat spécifique.
+    """
+    combat = await db.combats.find_one({"combat_id": data.combat_id}, {"_id": 0})
+    if not combat:
+        raise HTTPException(status_code=404, detail="Combat non trouvé")
+    
+    aire = await db.aires_combat.find_one({"aire_id": data.aire_id}, {"_id": 0})
+    if not aire:
+        raise HTTPException(status_code=404, detail="Aire de combat non trouvée")
+    
+    # Vérifier que l'aire est active
+    if aire.get("statut") not in ["active", None]:
+        raise HTTPException(status_code=400, detail="Cette aire de combat n'est pas active")
+    
+    # Calculer l'ordre dans l'aire
+    max_ordre_aire = await db.combats.find_one(
+        {"aire_id": data.aire_id, "termine": False},
+        {"_id": 0, "ordre": 1},
+        sort=[("ordre", -1)]
+    )
+    nouvel_ordre = (max_ordre_aire.get("ordre", 0) if max_ordre_aire else 0) + 1
+    
+    await db.combats.update_one(
+        {"combat_id": data.combat_id},
+        {"$set": {"aire_id": data.aire_id, "ordre": nouvel_ordre}}
+    )
+    
+    updated = await db.combats.find_one({"combat_id": data.combat_id}, {"_id": 0})
+    return updated
+
+@api_router.post("/combats-manuels/distribution-auto/{competition_id}")
+async def distribution_auto_combats(competition_id: str, user: User = Depends(require_admin)):
+    """
+    Distribue automatiquement les combats prêts et non assignés sur les aires disponibles.
+    Utilise un algorithme round-robin pour équilibrer la charge.
+    """
+    # Récupérer les aires actives
+    aires = await db.aires_combat.find(
+        {"competition_id": competition_id, "statut": {"$in": ["active", None]}},
+        {"_id": 0}
+    ).sort("numero", 1).to_list(20)
+    
+    if not aires:
+        raise HTTPException(status_code=400, detail="Aucune aire de combat active")
+    
+    # Récupérer les combats prêts non assignés
+    combats = await db.combats.find(
+        {
+            "competition_id": competition_id,
+            "pret": True,
+            "termine": False,
+            "statut": "a_venir",
+            "$or": [{"aire_id": None}, {"aire_id": ""}]
+        },
+        {"_id": 0}
+    ).sort([("est_finale", 1), ("ordre", 1)]).to_list(500)
+    
+    if not combats:
+        return {"message": "Aucun combat à distribuer", "distribues": 0}
+    
+    # Distribution round-robin
+    nb_aires = len(aires)
+    distribues = 0
+    
+    for i, combat in enumerate(combats):
+        aire = aires[i % nb_aires]
+        
+        # Calculer l'ordre dans l'aire
+        max_ordre = await db.combats.find_one(
+            {"aire_id": aire["aire_id"], "termine": False},
+            {"_id": 0, "ordre": 1},
+            sort=[("ordre", -1)]
+        )
+        nouvel_ordre = (max_ordre.get("ordre", 0) if max_ordre else 0) + 1
+        
+        await db.combats.update_one(
+            {"combat_id": combat["combat_id"]},
+            {"$set": {"aire_id": aire["aire_id"], "ordre": nouvel_ordre}}
+        )
+        distribues += 1
+    
+    return {
+        "message": f"{distribues} combat(s) distribué(s) sur {nb_aires} aire(s)",
+        "distribues": distribues,
+        "aires": nb_aires
+    }
+
+@api_router.get("/combats-manuels/arbre/{categorie_id}")
+async def get_arbre_manuel(categorie_id: str, user: User = Depends(get_current_user)):
+    """
+    Récupère l'arbre de combats d'une catégorie avec les connexions pour affichage graphique.
+    Inclut les informations de connexion entre combats pour le drag & drop.
+    """
+    combats = await db.combats.find({"categorie_id": categorie_id}, {"_id": 0}).to_list(200)
+    
+    # Enrichir chaque combat
+    for combat in combats:
+        if combat.get("rouge_id"):
+            rouge = await db.competiteurs.find_one(
+                {"competiteur_id": combat["rouge_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["rouge"] = rouge
+        else:
+            combat["rouge"] = None
+        
+        if combat.get("bleu_id"):
+            bleu = await db.competiteurs.find_one(
+                {"competiteur_id": combat["bleu_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
+            )
+            combat["bleu"] = bleu
+        else:
+            combat["bleu"] = None
+        
+        if combat.get("vainqueur_id"):
+            vainqueur = await db.competiteurs.find_one(
+                {"competiteur_id": combat["vainqueur_id"]},
+                {"_id": 0, "nom": 1, "prenom": 1}
+            )
+            combat["vainqueur"] = vainqueur
+    
+    # Organiser par tour
+    arbre = {}
+    for combat in combats:
+        tour = combat.get("tour", "autre")
+        if tour not in arbre:
+            arbre[tour] = []
+        arbre[tour].append(combat)
+    
+    # Trier par position dans chaque tour
+    for tour in arbre:
+        arbre[tour] = sorted(arbre[tour], key=lambda x: x.get("position", 0))
+    
+    # Créer la liste des connexions
+    connexions = []
+    for combat in combats:
+        if combat.get("combat_suivant_id"):
+            connexions.append({
+                "source_id": combat["combat_id"],
+                "destination_id": combat["combat_suivant_id"],
+                "slot": combat.get("combat_suivant_slot")
+            })
+    
+    categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
+    
+    return {
+        "categorie": categorie,
+        "arbre": arbre,
+        "connexions": connexions,
+        "total_combats": len(combats),
+        "combats_termines": len([c for c in combats if c.get("termine")]),
+        "combats_prets": len([c for c in combats if c.get("pret") and not c.get("termine")])
+    }
 
 # Include router
 app.include_router(api_router)

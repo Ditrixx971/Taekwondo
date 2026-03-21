@@ -1,0 +1,95 @@
+{
+  "summary": "Phase 1 Backend testing complete for Combat Manuel module. All 26 tests passed (100%). All endpoints for manual combat creation, modification, connection, distribution, and winner propagation are working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "POST /api/combats-manuels - Create combat with competitors (PASSED)",
+    "POST /api/combats-manuels - Create combat without competitors for later connection (PASSED)",
+    "POST /api/combats-manuels - Invalid competition returns 404 (PASSED)",
+    "POST /api/combats-manuels - Invalid category returns 404 (PASSED)",
+    "PUT /api/combats-manuels/{id} - Update tour (PASSED)",
+    "PUT /api/combats-manuels/{id} - Update custom name (PASSED)",
+    "PUT /api/combats-manuels/{id} - Change competitor (PASSED)",
+    "PUT /api/combats-manuels/{id} - Remove competitor with empty string (PASSED)",
+    "PUT /api/combats-manuels/{id} - Non-existent combat returns 404 (PASSED)",
+    "DELETE /api/combats-manuels/{id} - Delete combat (PASSED)",
+    "DELETE /api/combats-manuels/{id} - Non-existent combat returns 404 (PASSED)",
+    "POST /api/combats-manuels/connecter - Connect two combats (PASSED)",
+    "POST /api/combats-manuels/connecter - Invalid slot returns 400 (PASSED)",
+    "POST /api/combats-manuels/deconnecter - Disconnect combats (PASSED)",
+    "GET /api/combats-manuels/prets/{competition_id} - List ready combats (PASSED)",
+    "GET /api/combats-manuels/prets/{competition_id} - Non-existent competition returns empty list (PASSED)",
+    "GET /api/combats-manuels/non-assignes/{competition_id} - List unassigned combats (PASSED)",
+    "POST /api/combats-manuels/assigner-aire - Assign combat to area (PASSED)",
+    "POST /api/combats-manuels/assigner-aire - Invalid combat returns 404 (PASSED)",
+    "POST /api/combats-manuels/assigner-aire - Invalid area returns 404 (PASSED)",
+    "POST /api/combats-manuels/distribution-auto/{competition_id} - Auto-distribute combats (PASSED)",
+    "GET /api/combats-manuels/arbre/{categorie_id} - Get combat tree (PASSED)",
+    "GET /api/combats-manuels/arbre/{categorie_id} - Tree includes connections (PASSED)",
+    "PUT /api/combats/{id}/resultat - Winner propagation via manual connections (PASSED)",
+    "Edge case: Cannot modify finished combat returns 400 (PASSED)",
+    "Edge case: Cannot connect to already connected slot returns 400 (PASSED)"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_combats_manuels.py",
+    "/app/test_reports/pytest/pytest_combats_manuels_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_combats_manuels.py (new test file for Combat Manuel module)"
+  ],
+  "success_rate": {
+    "backend": "100% (26/26 tests passed)",
+    "frontend": "N/A (backend only testing requested)"
+  },
+  "test_credentials": {
+    "admin_email": "admin2@test.com",
+    "admin_password": "admin123"
+  },
+  "seed_data_used": {
+    "competition_id": "comp_52f906b963d6",
+    "categorie_id": "cat_f84e40525807",
+    "aire_id": "aire_ffc3ae90d351"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Combat Manuel module Phase 1 (backend) is fully implemented and tested. All CRUD operations work correctly. Connection system (combat_suivant_id/combat_suivant_slot) works in parallel with automatic system. Winner propagation uses both methods. Test competitors are created with TEST_ prefix and cleaned up after tests.",
+  "features_verified": {
+    "combat_manuel_crud": {
+      "create": "WORKING - Creates manual combats with mode_creation='manuel', supports optional competitors",
+      "read": "WORKING - Via /api/combats/{id} and /api/combats-manuels/arbre/{categorie_id}",
+      "update": "WORKING - Can modify tour, position, competitors, custom name, aire",
+      "delete": "WORKING - Deletes combat and disconnects linked combats"
+    },
+    "connection_system": {
+      "connect": "WORKING - Links source combat to destination slot (rouge/bleu)",
+      "disconnect": "WORKING - Removes connection and clears propagated competitor",
+      "validation": "WORKING - Prevents connecting to already connected slot"
+    },
+    "combat_status": {
+      "pret_field": "WORKING - Automatically updated based on competitor availability",
+      "ready_combats_list": "WORKING - Returns combats with pret=true, termine=false",
+      "unassigned_combats_list": "WORKING - Returns ready combats without aire_id"
+    },
+    "distribution": {
+      "manual_assignment": "WORKING - Assigns combat to specific aire",
+      "auto_distribution": "WORKING - Round-robin distribution to active aires"
+    },
+    "winner_propagation": {
+      "manual_connections": "WORKING - Winner propagated via combat_suivant_id/slot",
+      "pret_status_update": "WORKING - Destination combat pret status updated after propagation"
+    },
+    "edge_cases": {
+      "finished_combat_protection": "WORKING - Cannot modify or delete finished combats",
+      "slot_conflict_prevention": "WORKING - Cannot connect to already connected slot"
+    }
+  }
+}
