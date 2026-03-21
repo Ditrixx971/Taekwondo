@@ -12,6 +12,7 @@ import PeseePage from "./pages/PeseePage";
 import CategoriesPage from "./pages/CategoriesPage";
 import AiresCombatPage from "./pages/AiresCombatPage";
 import GestionCombatsPage from "./pages/GestionCombatsPage";
+import CombatsManuelPage from "./pages/CombatsManuelPage";
 import ArbitrePage from "./pages/ArbitrePage";
 import ArbitreMultiPage from "./pages/ArbitreMultiPage";
 import ArbreCombatPage from "./pages/ArbreCombatPage";
@@ -199,6 +200,7 @@ function AppRouter() {
       <Route path="/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
       <Route path="/aires-combat" element={<ProtectedRoute><AiresCombatPage /></ProtectedRoute>} />
       <Route path="/gestion-combats" element={<ProtectedRoute><GestionCombatsPage /></ProtectedRoute>} />
+      <Route path="/combats-manuel" element={<ProtectedRoute><CombatsManuelPage /></ProtectedRoute>} />
       <Route path="/arbre-combat" element={<ProtectedRoute><ArbreCombatPage /></ProtectedRoute>} />
       <Route path="/ordre-combats" element={<ProtectedRoute><OrdreCombatsPage /></ProtectedRoute>} />
       <Route path="/arbitre/:aireId" element={<ProtectedRoute><ArbitrePage /></ProtectedRoute>} />

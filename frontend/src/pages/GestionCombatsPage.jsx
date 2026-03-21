@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Trophy,
-  Shuffle
+  Shuffle,
+  Edit3
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -261,6 +262,15 @@ export default function GestionCombatsPage() {
                       Configurer les aires
                     </Button>
                   )}
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate("/combats-manuel")}
+                    data-testid="editeur-manuel-btn"
+                  >
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Éditeur manuel
+                  </Button>
                 </div>
                 
                 {aires.length === 0 && combats.length > 0 && (

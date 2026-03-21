@@ -22,7 +22,8 @@ import {
   UserCheck,
   Shield,
   Columns,
-  HelpCircle
+  HelpCircle,
+  Edit3
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -38,6 +39,7 @@ const navItems = [
   { path: "/categories", label: "Catégories", icon: FolderKanban },
   { path: "/aires-combat", label: "Aires de combat", icon: Grid3X3 },
   { path: "/gestion-combats", label: "Gestion combats", icon: Swords },
+  { path: "/combats-manuel", label: "Éditeur manuel", icon: Edit3 },
   { path: "/arbre-combat", label: "Arbre des combats", icon: TreeDeciduous },
   { path: "/ordre-combats", label: "Ordre des combats", icon: List },
   { path: "/arbitrage-multi", label: "Arbitrage multi-aires", icon: Columns },

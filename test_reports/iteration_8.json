@@ -1,0 +1,102 @@
+{
+  "summary": "Phase 2 Frontend testing complete for Combat Manuel module. All UI features tested and working correctly. Fixed one minor HTML hydration issue.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Navigation to /combats-manuel via sidebar menu (PASSED)",
+    "Category selector displays 126 categories (PASSED)",
+    "Category switching updates combat tree (PASSED)",
+    "Combat tree displays columns: DEMI-FINALES, FINALES, MANUEL (PASSED)",
+    "Combat nodes display with correct status indicators (PASSED)",
+    "Clicking combat node shows detail panel (PASSED)",
+    "Detail panel shows ID, Mode, Statut, Connexions (PASSED)",
+    "Create combat dialog opens with all fields (PASSED)",
+    "Create combat with custom name, tour, and combattant (PASSED)",
+    "Combat creation updates tree and stats (PASSED)",
+    "Connection dialog opens when clicking chain icon (PASSED)",
+    "Connection dialog shows source combat selector (PASSED)",
+    "Delete combat via detail panel (PASSED)",
+    "Delete confirmation and success toast (PASSED)",
+    "Distribuer sur aires button functional (PASSED)",
+    "Vue arbre button navigates to /arbre-combat (PASSED)",
+    "Retour button navigates to /gestion-combats (PASSED)",
+    "Éditeur manuel button on Gestion Combats page (PASSED)"
+  ],
+  "test_report_links": [
+    "/app/test_reports/iteration_8.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/frontend/src/pages/CombatsManuelPage.jsx (fixed HTML hydration issue - Badge inside p tag)"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100% (18/18 tests passed)"
+  },
+  "test_credentials": {
+    "admin_email": "admin2@test.com",
+    "admin_password": "admin123"
+  },
+  "seed_data_used": {
+    "competition": "OPEN PETIT BOURG (comp_52f906b963d6)",
+    "categorie": "Pupilles 1 Masculin -21kg (cat_f84e40525807)"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Combat Manuel module Phase 2 (frontend) is fully implemented and tested. All UI features work correctly including: navigation, category selection, combat tree display, combat creation/modification/deletion, connection dialogs, and navigation buttons. Fixed one minor HTML hydration issue where Badge component was nested inside p tag.",
+  "features_verified": {
+    "navigation": {
+      "sidebar_link": "WORKING - /combats-manuel accessible via 'Éditeur manuel' link",
+      "gestion_combats_button": "WORKING - 'Éditeur manuel' button on Gestion Combats page",
+      "vue_arbre_button": "WORKING - Navigates to /arbre-combat with category param",
+      "retour_button": "WORKING - Navigates back to /gestion-combats"
+    },
+    "category_selection": {
+      "selector": "WORKING - Displays all 126 categories",
+      "switching": "WORKING - Updates combat tree when category changes"
+    },
+    "combat_tree_display": {
+      "columns": "WORKING - Shows DEMI-FINALES, FINALES, MANUEL columns",
+      "combat_nodes": "WORKING - Displays combat info with status badges",
+      "status_indicators": "WORKING - Prêt (blue), Terminé (green), Manuel badges"
+    },
+    "combat_creation": {
+      "dialog": "WORKING - Opens with all required fields",
+      "fields": "WORKING - Custom name, tour type, rouge/bleu combattants",
+      "submission": "WORKING - Creates combat and updates tree"
+    },
+    "combat_modification": {
+      "detail_panel": "WORKING - Shows when combat node clicked",
+      "edit_fields": "WORKING - Custom name, tour, combattants editable",
+      "save_button": "WORKING - Updates combat successfully"
+    },
+    "combat_deletion": {
+      "delete_button": "WORKING - In detail panel",
+      "confirmation": "WORKING - Browser confirm dialog",
+      "success": "WORKING - Toast and tree update"
+    },
+    "connection_system": {
+      "connect_buttons": "WORKING - Chain icons on unassigned slots",
+      "connect_dialog": "WORKING - Shows source combat selector",
+      "slot_indicator": "WORKING - Shows rouge/bleu badge"
+    },
+    "distribution": {
+      "distribute_button": "WORKING - Distribuer sur aires functional"
+    }
+  },
+  "fixes_applied": {
+    "hydration_warning": {
+      "issue": "React hydration error: <div> (Badge) cannot be descendant of <p>",
+      "location": "CombatsManuelPage.jsx lines 1021-1032",
+      "fix": "Changed <p> tags to <div> with flex layout in Aide section"
+    }
+  }
+}
