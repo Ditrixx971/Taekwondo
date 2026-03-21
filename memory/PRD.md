@@ -100,6 +100,19 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - **Distribution automatique**: Round-robin sur les aires actives
 - **API "Combats prêts"**: Liste les combats prêts à être lancés
 
+### Phase 9 (21 Mar 2026) - MODULE COMBAT MANUEL - Frontend ✅
+- **Page CombatsManuelPage** (`/combats-manuel`): Éditeur visuel graphique
+  - Affichage en colonnes par tour (quarts, demis, finales, manuel)
+  - Nœuds de combat interactifs avec indicateurs de statut
+  - Panneau de détails pour modifier les combats
+  - Dialogue de création de nouveaux combats
+  - Système de connexion visuel (icônes chaîne)
+  - Distribution automatique sur aires
+- **Navigation intégrée**: 
+  - Lien dans le menu latéral "Éditeur manuel"
+  - Bouton d'accès depuis la page Gestion Combats
+  - Navigation vers la vue arbre standard
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs
@@ -149,20 +162,20 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - **Competition test**: comp_52f906b963d6 (OPEN PETIT BOURG)
 
 ## Test Status
-- **Backend**: 100% (iteration_7.json - 26/26 tests Combat Manuel)
-- **Frontend**: 100%
+- **Backend**: 100% (iteration_7.json - 26/26 tests Combat Manuel Backend)
+- **Frontend**: 100% (iteration_8.json - 18/18 tests Combat Manuel Frontend)
 - **Test files**: 
   - `/app/backend/tests/test_aires_combat_arbitre.py`
   - `/app/backend/tests/test_phase1_features.py`
   - `/app/backend/tests/test_phase2_features.py`
-  - `/app/backend/tests/test_combats_manuels.py` (NOUVEAU)
+  - `/app/backend/tests/test_combats_manuels.py`
 
 ## Backlog
 
-### P0 (Module Combat Manuel - En cours)
-- [x] Phase 1 - Backend: Modèles et endpoints (TERMINÉ)
-- [ ] Phase 2 - Frontend: Éditeur visuel graphique (drag & drop)
-- [ ] Phase 3 - Logique de flux continu: Distribution automatique vers les aires
+### P0 (Module Combat Manuel)
+- [x] Phase 1 - Backend: Modèles et endpoints (TERMINÉ 21 Mar 2026)
+- [x] Phase 2 - Frontend: Éditeur visuel graphique (TERMINÉ 21 Mar 2026)
+- [ ] Phase 3 - Logique de flux continu: Distribution automatique temps réel vers les aires
 
 ### P1 (Haute priorité)
 - [ ] Rapports et statistiques (classement des clubs, médailles par club)
