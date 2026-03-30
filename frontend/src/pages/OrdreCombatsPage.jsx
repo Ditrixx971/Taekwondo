@@ -32,18 +32,45 @@ import {
   Clock, 
   Save,
   AlertTriangle,
-  Pause,
   XCircle,
   CheckCircle2,
   ChevronLeft,
   TreeDeciduous,
   Columns,
-  LayoutGrid
+  LayoutGrid,
+  FileDown,
+  HelpCircle
 } from "lucide-react";
 import { motion } from "framer-motion";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+// Fonction utilitaire pour formater le nom complet avec catégorie et club
+const formatCombattantComplet = (combattant, categorie) => {
+  if (!combattant) {
+    return { nom: "À déterminer", club: "", categorie: categorie || "" };
+  }
+  return {
+    nom: `${combattant.prenom || ""} ${combattant.nom || ""}`.trim(),
+    club: combattant.club || "",
+    categorie: categorie || ""
+  };
+};
+
+// Fonction utilitaire pour le label du tour
+const getTourLabel = (tour) => {
+  switch(tour) {
+    case "quart": return "1/4";
+    case "demi": return "1/2";
+    case "finale": return "Finale";
+    case "bronze": return "Bronze";
+    case "poule": return "Poule";
+    default: return tour || "Tour";
+  }
+};
 
 // Composant pour un combat draggable
 function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, showAire }) {
@@ -63,27 +90,23 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
     zIndex: isDragging ? 1000 : 1
   };
 
-  const getTourLabel = (tour) => {
-    switch(tour) {
-      case "quart": return "1/4";
-      case "demi": return "1/2";
-      case "finale": return "Finale";
-      case "bronze": return "Bronze";
-      default: return tour;
-    }
-  };
-
   const isFinale = combat.tour === "finale" || combat.tour === "bronze";
+  const categorieNom = combat.categorie?.nom || combat.categorie_nom || "Catégorie";
+  
+  const bleuInfo = formatCombattantComplet(combat.bleu, categorieNom);
+  const rougeInfo = formatCombattantComplet(combat.rouge, categorieNom);
+  const isADeterminer = !combat.bleu_id || !combat.rouge_id;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={`
-        flex items-center gap-3 p-3 rounded-lg border transition-all
+        flex items-center gap-2 p-3 rounded-lg border transition-all
         ${isDragging ? "shadow-lg bg-white" : "bg-slate-50 hover:bg-slate-100"}
         ${isFinale ? "border-amber-300 bg-amber-50" : "border-slate-200"}
-        print:border print:shadow-none print:p-2
+        ${isADeterminer ? "border-dashed border-slate-400 bg-slate-100" : ""}
+        print:border print:shadow-none print:p-2 print:bg-white
       `}
       data-testid={`combat-row-${combat.combat_id}`}
     >
@@ -91,87 +114,98 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing print:hidden"
+        className="cursor-grab active:cursor-grabbing print:hidden flex-shrink-0"
       >
         <GripVertical className="h-5 w-5 text-slate-400" />
       </div>
 
       {/* Numéro d'ordre */}
-      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm">
+      <div className="w-7 h-7 rounded-full bg-slate-700 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 print:bg-black">
         {index + 1}
       </div>
 
       {/* Heure approximative */}
-      <div className="w-16 text-center">
-        <span className="text-sm font-medium text-slate-600">{heureApprox}</span>
+      <div className="w-14 text-center flex-shrink-0">
+        <span className="text-xs font-semibold text-slate-600">{heureApprox}</span>
       </div>
 
       {/* Aire (si multi-aires) */}
       {showAire && (
-        <Badge variant="outline" className="w-20 justify-center">
+        <Badge variant="outline" className="w-16 justify-center text-xs flex-shrink-0">
           {aireNom}
         </Badge>
       )}
 
       {/* Tour */}
-      <Badge className={isFinale ? "bg-amber-500" : "bg-slate-500"}>
+      <Badge className={`${isFinale ? "bg-amber-500" : "bg-slate-600"} text-xs flex-shrink-0`}>
         {getTourLabel(combat.tour)}
       </Badge>
 
       {/* Catégorie */}
-      <div className="text-xs text-slate-500 w-32 truncate">
-        {combat.categorie_nom || "Catégorie"}
+      <div className="w-28 flex-shrink-0">
+        <span className="text-xs font-medium text-slate-700 truncate block">
+          {categorieNom}
+        </span>
       </div>
 
-      {/* Combattants */}
-      <div className="flex-1 flex gap-2 items-center">
-        <div className={`flex-1 p-2 rounded text-center ${
-          combat.vainqueur_id === combat.bleu_id ? "bg-blue-100 ring-2 ring-blue-400" : "bg-blue-50"
-        }`}>
-          <span className="font-bold text-blue-700">
-            {combat.bleu ? `${combat.bleu.prenom} ${combat.bleu.nom}` : "En attente"}
+      {/* Combattants - BLEU à gauche */}
+      <div className="flex-1 flex gap-2 items-center min-w-0">
+        <div className={`flex-1 p-2 rounded text-center min-w-0 ${
+          combat.vainqueur_id === combat.bleu_id ? "bg-blue-200 ring-2 ring-blue-500" : "bg-blue-50"
+        } ${!combat.bleu_id ? "bg-slate-200 border-dashed border border-slate-400" : ""}`}>
+          <span className={`font-bold block truncate ${combat.bleu_id ? "text-blue-800" : "text-slate-500 italic"}`}>
+            {bleuInfo.nom}
           </span>
-          {combat.bleu?.club && (
-            <span className="text-xs text-blue-500 block">{combat.bleu.club}</span>
+          {bleuInfo.club && (
+            <span className="text-xs text-blue-600 block truncate">{bleuInfo.club}</span>
           )}
         </div>
 
-        <span className="font-black text-slate-400">VS</span>
+        <span className="font-black text-slate-400 text-sm flex-shrink-0">VS</span>
 
-        <div className={`flex-1 p-2 rounded text-center ${
-          combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
-        }`}>
-          <span className="font-bold text-red-700">
-            {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
+        {/* ROUGE à droite */}
+        <div className={`flex-1 p-2 rounded text-center min-w-0 ${
+          combat.vainqueur_id === combat.rouge_id ? "bg-red-200 ring-2 ring-red-500" : "bg-red-50"
+        } ${!combat.rouge_id ? "bg-slate-200 border-dashed border border-slate-400" : ""}`}>
+          <span className={`font-bold block truncate ${combat.rouge_id ? "text-red-800" : "text-slate-500 italic"}`}>
+            {rougeInfo.nom}
           </span>
-          {combat.rouge?.club && (
-            <span className="text-xs text-red-500 block">{combat.rouge.club}</span>
+          {rougeInfo.club && (
+            <span className="text-xs text-red-600 block truncate">{rougeInfo.club}</span>
           )}
         </div>
       </div>
+
+      {/* Indicateur "À déterminer" */}
+      {isADeterminer && (
+        <Badge variant="outline" className="border-amber-400 text-amber-600 text-xs flex-shrink-0 print:border-black print:text-black">
+          <HelpCircle className="h-3 w-3 mr-1" />
+          TBD
+        </Badge>
+      )}
 
       {/* Statut */}
-      <div className="w-24 text-center">
+      <div className="w-20 text-center flex-shrink-0">
         {combat.termine ? (
-          <Badge className="bg-green-500">
+          <Badge className="bg-green-500 text-xs">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Terminé
           </Badge>
         ) : combat.statut === "en_cours" ? (
-          <Badge className="bg-blue-500">En cours</Badge>
+          <Badge className="bg-blue-500 text-xs">En cours</Badge>
         ) : (
-          <Badge variant="outline">À venir</Badge>
+          <Badge variant="outline" className="text-xs">À venir</Badge>
         )}
       </div>
 
       {/* Actions forfait */}
       {!combat.termine && (
-        <div className="flex gap-1 print:hidden">
+        <div className="flex gap-1 print:hidden flex-shrink-0">
           {combat.bleu_id && (
             <Button
               size="sm"
               variant="ghost"
-              className="text-blue-500 hover:bg-blue-50 p-1"
+              className="text-blue-500 hover:bg-blue-50 p-1 h-7 w-7"
               onClick={() => onForfait(combat, combat.bleu_id, "bleu")}
               title="Forfait Bleu"
             >
@@ -182,7 +216,7 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
             <Button
               size="sm"
               variant="ghost"
-              className="text-red-500 hover:bg-red-50 p-1"
+              className="text-red-500 hover:bg-red-50 p-1 h-7 w-7"
               onClick={() => onForfait(combat, combat.rouge_id, "rouge")}
               title="Forfait Rouge"
             >
@@ -219,8 +253,10 @@ function AireColumn({ aire, combats, heureDebut, dureeCombat, onForfait, onStatu
     }
   };
 
+  const combatsADeterminer = combats.filter(c => !c.bleu_id || !c.rouge_id).length;
+
   return (
-    <Card className="border-slate-200 flex-1 min-w-[400px]">
+    <Card className="border-slate-200 flex-1 min-w-[450px] print:min-w-0 print:break-inside-avoid">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -228,10 +264,17 @@ function AireColumn({ aire, combats, heureDebut, dureeCombat, onForfait, onStatu
             {aire.statut === "pause" && <Badge className="bg-amber-500">Pause</Badge>}
             {aire.statut === "hs" && <Badge className="bg-red-500">HS</Badge>}
           </CardTitle>
-          <Badge variant="outline">{combats.length} combats</Badge>
+          <div className="flex items-center gap-2">
+            {combatsADeterminer > 0 && (
+              <Badge variant="outline" className="border-amber-400 text-amber-600">
+                {combatsADeterminer} TBD
+              </Badge>
+            )}
+            <Badge variant="outline">{combats.length} combats</Badge>
+          </div>
         </div>
         {isAdmin && (
-          <div className="flex gap-1 mt-2">
+          <div className="flex gap-1 mt-2 print:hidden">
             <Button
               size="sm"
               variant={aire.statut === "active" ? "default" : "outline"}
@@ -259,7 +302,7 @@ function AireColumn({ aire, combats, heureDebut, dureeCombat, onForfait, onStatu
           </div>
         )}
       </CardHeader>
-      <CardContent className="p-3 max-h-[600px] overflow-y-auto">
+      <CardContent className="p-3 max-h-[600px] overflow-y-auto print:max-h-none print:overflow-visible">
         {combats.length === 0 ? (
           <p className="text-center text-slate-500 py-8">Aucun combat sur cette aire</p>
         ) : (
@@ -298,7 +341,8 @@ export default function OrdreCombatsPage() {
   const [hasChanges, setHasChanges] = useState({});
   const [heureDebut, setHeureDebut] = useState(competition?.heure_debut || "09:00");
   const [dureeCombat, setDureeCombat] = useState(6);
-  const [viewMode, setViewMode] = useState("multi"); // "single" ou "multi"
+  const [viewMode, setViewMode] = useState("multi");
+  const [showTermines, setShowTermines] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -307,41 +351,31 @@ export default function OrdreCombatsPage() {
     })
   );
 
-  useEffect(() => {
-    if (competition) {
-      fetchAires();
-    }
-  }, [competition]);
-
-  useEffect(() => {
-    if (selectedAires.length > 0) {
-      fetchAllCombats();
-    }
-  }, [selectedAires]);
-
-  const fetchAires = async () => {
+  const fetchAires = useCallback(async () => {
+    if (!competition) return;
     try {
       const response = await axios.get(
         `${API}/aires-combat?competition_id=${competition.competition_id}`,
         { withCredentials: true }
       );
       setAires(response.data);
-      // Sélectionner toutes les aires par défaut
       setSelectedAires(response.data.map(a => a.aire_id));
     } catch (error) {
       toast.error("Erreur lors du chargement des aires");
     } finally {
       setLoading(false);
     }
-  };
+  }, [competition]);
 
-  const fetchAllCombats = async () => {
+  const fetchAllCombats = useCallback(async () => {
+    if (selectedAires.length === 0) return;
     try {
       const results = {};
       await Promise.all(
         selectedAires.map(async (aireId) => {
+          // Récupérer tous les combats (inclut les combats sans combattants)
           const response = await axios.get(
-            `${API}/combats/ordre/${aireId}`,
+            `${API}/combats/ordre/${aireId}${showTermines ? '?include_termines=true' : ''}`,
             { withCredentials: true }
           );
           results[aireId] = response.data;
@@ -352,7 +386,17 @@ export default function OrdreCombatsPage() {
     } catch (error) {
       toast.error("Erreur lors du chargement des combats");
     }
-  };
+  }, [selectedAires, showTermines]);
+
+  useEffect(() => {
+    fetchAires();
+  }, [fetchAires]);
+
+  useEffect(() => {
+    if (selectedAires.length > 0) {
+      fetchAllCombats();
+    }
+  }, [selectedAires, fetchAllCombats]);
 
   const handleAireToggle = (aireId) => {
     setSelectedAires(prev => {
@@ -431,6 +475,119 @@ export default function OrdreCombatsPage() {
     }
   };
 
+  // Export PDF avec jsPDF
+  const handleExportPDF = () => {
+    const allCombats = getAllCombatsSorted();
+    if (allCombats.length === 0) {
+      toast.error("Aucun combat à exporter");
+      return;
+    }
+
+    // Créer le PDF en format paysage A4
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4"
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(competition?.nom || "Compétition", pageWidth / 2, margin + 5, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("ORDRE DE PASSAGE DES COMBATS", pageWidth / 2, margin + 12, { align: "center" });
+    
+    doc.setFontSize(9);
+    doc.text(`Début: ${heureDebut} | Durée/combat: ${dureeCombat} min | ${selectedAires.length} aire(s)`, pageWidth / 2, margin + 18, { align: "center" });
+
+    // Préparer les données pour le tableau
+    const tableData = allCombats.map((combat, index) => {
+      const categorieNom = combat.categorie?.nom || combat.categorie_nom || "";
+      const bleuNom = combat.bleu ? `${combat.bleu.prenom} ${combat.bleu.nom}` : "À déterminer";
+      const bleuClub = combat.bleu?.club || "";
+      const rougeNom = combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "À déterminer";
+      const rougeClub = combat.rouge?.club || "";
+      const heureApprox = combat.heureApprox.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      
+      return [
+        index + 1,
+        heureApprox,
+        combat.aireNom,
+        getTourLabel(combat.tour),
+        categorieNom,
+        bleuNom + (bleuClub ? `\n(${bleuClub})` : ""),
+        rougeNom + (rougeClub ? `\n(${rougeClub})` : ""),
+        combat.termine ? "Terminé" : (combat.statut === "en_cours" ? "En cours" : "À venir")
+      ];
+    });
+
+    // Créer le tableau
+    autoTable(doc, {
+      startY: margin + 22,
+      head: [["#", "Heure", "Aire", "Tour", "Catégorie", "BLEU", "ROUGE", "Statut"]],
+      body: tableData,
+      theme: "grid",
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        overflow: "linebreak",
+        halign: "center",
+        valign: "middle"
+      },
+      headStyles: {
+        fillColor: [50, 50, 50],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 9
+      },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 15, halign: "center" },
+        2: { cellWidth: 20, halign: "center" },
+        3: { cellWidth: 18, halign: "center" },
+        4: { cellWidth: 35, halign: "left" },
+        5: { cellWidth: 55, halign: "left", textColor: [0, 0, 150] },
+        6: { cellWidth: 55, halign: "left", textColor: [150, 0, 0] },
+        7: { cellWidth: 20, halign: "center" }
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: function(data) {
+        // Footer sur chaque page
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          `Généré le ${dateStr} à ${timeStr}`,
+          margin,
+          pageHeight - 5
+        );
+        doc.text(
+          `Page ${doc.internal.getCurrentPageInfo().pageNumber}`,
+          pageWidth - margin,
+          pageHeight - 5,
+          { align: "right" }
+        );
+      }
+    });
+
+    // Télécharger le PDF
+    const fileName = `ordre_combats_${competition?.nom?.replace(/\s+/g, '_') || 'competition'}_${dateStr.replace(/\//g, '-')}.pdf`;
+    doc.save(fileName);
+    toast.success("PDF exporté avec succès !");
+  };
+
+  // Impression optimisée
   const handlePrint = () => {
     window.print();
   };
@@ -438,7 +595,7 @@ export default function OrdreCombatsPage() {
   const totalChanges = Object.values(hasChanges).filter(Boolean).length;
 
   // Fusionner tous les combats pour la vue unifiée
-  const getAllCombatsSorted = () => {
+  const getAllCombatsSorted = useCallback(() => {
     const allCombats = [];
     selectedAires.forEach(aireId => {
       const aire = aires.find(a => a.aire_id === aireId);
@@ -453,10 +610,13 @@ export default function OrdreCombatsPage() {
         });
       });
     });
-    // Trier par heure approximative
     allCombats.sort((a, b) => a.heureApprox - b.heureApprox);
     return allCombats;
-  };
+  }, [selectedAires, aires, combatsByAire, heureDebut, dureeCombat]);
+
+  // Statistiques
+  const allCombats = Object.values(combatsByAire).flat();
+  const combatsADeterminer = allCombats.filter(c => !c.bleu_id || !c.rouge_id).length;
 
   if (loading) {
     return (
@@ -470,7 +630,50 @@ export default function OrdreCombatsPage() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      {/* Styles d'impression optimisés */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+          
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          /* Masquer la sidebar et les éléments non imprimables */
+          nav, aside, .print\\:hidden, [data-print-hide="true"] {
+            display: none !important;
+          }
+          
+          /* Styles spécifiques impression */
+          .print-container {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          /* Forcer fond blanc */
+          .print\\:bg-white {
+            background-color: white !important;
+          }
+          
+          /* Réduire les tailles de texte pour l'impression */
+          .print\\:text-xs {
+            font-size: 10px !important;
+          }
+          
+          /* Éviter les coupures de page au milieu d'un combat */
+          .print\\:break-inside-avoid {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+
+      <div className="space-y-6 print-container">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -487,12 +690,15 @@ export default function OrdreCombatsPage() {
                 Ordre des combats
               </h1>
               <p className="text-slate-500 mt-1">
-                {selectedAires.length} aire(s) sélectionnée(s) • Glissez-déposez pour réorganiser
+                {selectedAires.length} aire(s) • {allCombats.length} combats
+                {combatsADeterminer > 0 && (
+                  <span className="text-amber-600 ml-2">({combatsADeterminer} à déterminer)</span>
+                )}
               </p>
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {totalChanges > 0 && (
               <Button onClick={handleSaveAll} disabled={saving} className="bg-green-600 hover:bg-green-700">
                 <Save className="mr-2 h-4 w-4" />
@@ -501,9 +707,13 @@ export default function OrdreCombatsPage() {
             )}
             <Button variant="outline" onClick={() => navigate(`/arbre-combat`)}>
               <TreeDeciduous className="mr-2 h-4 w-4" />
-              Voir arbre
+              Arbre
             </Button>
-            <Button variant="outline" onClick={handlePrint}>
+            <Button variant="outline" onClick={handleExportPDF} data-testid="export-pdf-btn">
+              <FileDown className="mr-2 h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button variant="outline" onClick={handlePrint} data-testid="print-btn">
               <Printer className="mr-2 h-4 w-4" />
               Imprimer
             </Button>
@@ -522,7 +732,7 @@ export default function OrdreCombatsPage() {
               <div className="flex flex-wrap items-center gap-6">
                 {/* Sélection des aires */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Aires à afficher :</Label>
+                  <Label className="text-sm font-medium text-slate-700">Aires :</Label>
                   <div className="flex flex-wrap gap-3">
                     {aires.map(aire => (
                       <div key={aire.aire_id} className="flex items-center gap-2">
@@ -575,7 +785,7 @@ export default function OrdreCombatsPage() {
                     min="3"
                     max="15"
                     value={dureeCombat}
-                    onChange={(e) => setDureeCombat(parseInt(e.target.value))}
+                    onChange={(e) => setDureeCombat(parseInt(e.target.value) || 6)}
                     className="w-16"
                   />
                   <span className="text-sm text-slate-500">min/combat</span>
@@ -603,14 +813,18 @@ export default function OrdreCombatsPage() {
           </motion.div>
         )}
 
-        {/* Titre impression */}
+        {/* Titre impression - Visible uniquement à l'impression */}
         <div className="hidden print:block text-center mb-6">
           <h1 className="text-2xl font-black uppercase">{competition?.nom}</h1>
-          <h2 className="text-lg font-bold mt-1">
-            Ordre des combats - {selectedAires.length} aire(s)
+          <h2 className="text-xl font-bold mt-1">
+            ORDRE DE PASSAGE DES COMBATS
           </h2>
-          <p className="text-sm text-slate-500">
-            Début : {heureDebut} • Durée par combat : {dureeCombat} min
+          <p className="text-sm text-slate-600 mt-1">
+            Début : {heureDebut} | Durée par combat : {dureeCombat} min | {selectedAires.length} aire(s) | {allCombats.length} combats
+            {combatsADeterminer > 0 && ` (dont ${combatsADeterminer} à déterminer)`}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Imprimé le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
 
@@ -620,7 +834,7 @@ export default function OrdreCombatsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="flex gap-4 overflow-x-auto pb-4"
+            className="flex gap-4 overflow-x-auto pb-4 print:flex-col print:overflow-visible"
           >
             {selectedAires.map(aireId => {
               const aire = aires.find(a => a.aire_id === aireId);
@@ -650,7 +864,7 @@ export default function OrdreCombatsPage() {
             transition={{ delay: 0.2 }}
           >
             <Card className="border-slate-200">
-              <CardHeader>
+              <CardHeader className="print:hidden">
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
                   Tous les combats par ordre chronologique
@@ -661,74 +875,99 @@ export default function OrdreCombatsPage() {
                   <p className="text-center text-slate-500 py-8">Aucun combat programmé</p>
                 ) : (
                   <div className="space-y-2">
-                    {getAllCombatsSorted().map((combat, index) => (
-                      <div
-                        key={combat.combat_id}
-                        className={`
-                          flex items-center gap-3 p-3 rounded-lg border transition-all
-                          ${combat.tour === "finale" || combat.tour === "bronze" 
-                            ? "border-amber-300 bg-amber-50" 
-                            : "border-slate-200 bg-slate-50"}
-                        `}
-                      >
-                        {/* Numéro */}
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm">
-                          {index + 1}
-                        </div>
+                    {getAllCombatsSorted().map((combat, index) => {
+                      const categorieNom = combat.categorie?.nom || combat.categorie_nom || "";
+                      const bleuInfo = formatCombattantComplet(combat.bleu, categorieNom);
+                      const rougeInfo = formatCombattantComplet(combat.rouge, categorieNom);
+                      const isADeterminer = !combat.bleu_id || !combat.rouge_id;
+                      const isFinale = combat.tour === "finale" || combat.tour === "bronze";
 
-                        {/* Heure */}
-                        <div className="w-16 text-center">
-                          <span className="text-sm font-medium text-slate-600">
-                            {combat.heureApprox.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
+                      return (
+                        <div
+                          key={combat.combat_id}
+                          data-testid={`unified-combat-${combat.combat_id}`}
+                          className={`
+                            flex items-center gap-2 p-3 rounded-lg border transition-all print:break-inside-avoid
+                            ${isFinale ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"}
+                            ${isADeterminer ? "border-dashed border-slate-400" : ""}
+                            print:bg-white print:border-solid
+                          `}
+                        >
+                          {/* Numéro */}
+                          <div className="w-7 h-7 rounded-full bg-slate-700 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+                            {index + 1}
+                          </div>
 
-                        {/* Aire */}
-                        <Badge variant="outline" className="w-20 justify-center">
-                          {combat.aireNom}
-                        </Badge>
-
-                        {/* Tour */}
-                        <Badge className={combat.tour === "finale" || combat.tour === "bronze" ? "bg-amber-500" : "bg-slate-500"}>
-                          {combat.tour === "quart" ? "1/4" : combat.tour === "demi" ? "1/2" : combat.tour === "finale" ? "Finale" : combat.tour === "bronze" ? "Bronze" : combat.tour}
-                        </Badge>
-
-                        {/* Catégorie */}
-                        <div className="text-xs text-slate-500 w-32 truncate">
-                          {combat.categorie_nom || "Catégorie"}
-                        </div>
-
-                        {/* Combattants */}
-                        <div className="flex-1 flex gap-2 items-center">
-                          <div className={`flex-1 p-2 rounded text-center ${
-                            combat.vainqueur_id === combat.bleu_id ? "bg-blue-100 ring-2 ring-blue-400" : "bg-blue-50"
-                          }`}>
-                            <span className="font-bold text-blue-700">
-                              {combat.bleu ? `${combat.bleu.prenom} ${combat.bleu.nom}` : "En attente"}
+                          {/* Heure */}
+                          <div className="w-14 text-center flex-shrink-0">
+                            <span className="text-xs font-semibold text-slate-600">
+                              {combat.heureApprox.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <span className="font-black text-slate-400">VS</span>
-                          <div className={`flex-1 p-2 rounded text-center ${
-                            combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
-                          }`}>
-                            <span className="font-bold text-red-700">
-                              {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
+
+                          {/* Aire */}
+                          <Badge variant="outline" className="w-16 justify-center text-xs flex-shrink-0">
+                            {combat.aireNom}
+                          </Badge>
+
+                          {/* Tour */}
+                          <Badge className={`${isFinale ? "bg-amber-500" : "bg-slate-600"} text-xs flex-shrink-0`}>
+                            {getTourLabel(combat.tour)}
+                          </Badge>
+
+                          {/* Catégorie */}
+                          <div className="w-28 flex-shrink-0">
+                            <span className="text-xs font-medium text-slate-700 truncate block">
+                              {categorieNom}
                             </span>
                           </div>
-                        </div>
 
-                        {/* Statut */}
-                        <div className="w-24 text-center">
-                          {combat.termine ? (
-                            <Badge className="bg-green-500">Terminé</Badge>
-                          ) : combat.statut === "en_cours" ? (
-                            <Badge className="bg-blue-500">En cours</Badge>
-                          ) : (
-                            <Badge variant="outline">À venir</Badge>
+                          {/* Combattants */}
+                          <div className="flex-1 flex gap-2 items-center min-w-0">
+                            <div className={`flex-1 p-2 rounded text-center min-w-0 ${
+                              combat.vainqueur_id === combat.bleu_id ? "bg-blue-200 ring-2 ring-blue-500" : "bg-blue-50"
+                            } ${!combat.bleu_id ? "bg-slate-200 border-dashed border border-slate-400" : ""}`}>
+                              <span className={`font-bold block truncate ${combat.bleu_id ? "text-blue-800" : "text-slate-500 italic"}`}>
+                                {bleuInfo.nom}
+                              </span>
+                              {bleuInfo.club && (
+                                <span className="text-xs text-blue-600 block truncate">{bleuInfo.club}</span>
+                              )}
+                            </div>
+                            <span className="font-black text-slate-400 text-sm flex-shrink-0">VS</span>
+                            <div className={`flex-1 p-2 rounded text-center min-w-0 ${
+                              combat.vainqueur_id === combat.rouge_id ? "bg-red-200 ring-2 ring-red-500" : "bg-red-50"
+                            } ${!combat.rouge_id ? "bg-slate-200 border-dashed border border-slate-400" : ""}`}>
+                              <span className={`font-bold block truncate ${combat.rouge_id ? "text-red-800" : "text-slate-500 italic"}`}>
+                                {rougeInfo.nom}
+                              </span>
+                              {rougeInfo.club && (
+                                <span className="text-xs text-red-600 block truncate">{rougeInfo.club}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Indicateur TBD */}
+                          {isADeterminer && (
+                            <Badge variant="outline" className="border-amber-400 text-amber-600 text-xs flex-shrink-0">
+                              <HelpCircle className="h-3 w-3 mr-1" />
+                              TBD
+                            </Badge>
                           )}
+
+                          {/* Statut */}
+                          <div className="w-20 text-center flex-shrink-0">
+                            {combat.termine ? (
+                              <Badge className="bg-green-500 text-xs">Terminé</Badge>
+                            ) : combat.statut === "en_cours" ? (
+                              <Badge className="bg-blue-500 text-xs">En cours</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">À venir</Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -745,28 +984,34 @@ export default function OrdreCombatsPage() {
         >
           <Card className="border-slate-200 bg-slate-50">
             <CardContent className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold text-slate-900">
-                    {Object.values(combatsByAire).flat().length}
+                    {allCombats.length}
                   </p>
                   <p className="text-sm text-slate-500">Total combats</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-green-600">
-                    {Object.values(combatsByAire).flat().filter(c => c.termine).length}
+                    {allCombats.filter(c => c.termine).length}
                   </p>
                   <p className="text-sm text-slate-500">Terminés</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-blue-600">
-                    {Object.values(combatsByAire).flat().filter(c => c.statut === "en_cours").length}
+                    {allCombats.filter(c => c.statut === "en_cours").length}
                   </p>
                   <p className="text-sm text-slate-500">En cours</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-amber-600">
-                    {Object.values(combatsByAire).flat().filter(c => c.tour === "finale" || c.tour === "bronze").length}
+                    {combatsADeterminer}
+                  </p>
+                  <p className="text-sm text-slate-500">À déterminer</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {allCombats.filter(c => c.tour === "finale" || c.tour === "bronze").length}
                   </p>
                   <p className="text-sm text-slate-500">Finales</p>
                 </div>
