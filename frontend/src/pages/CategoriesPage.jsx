@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Plus, Trash2, FolderKanban, Users, Download, RefreshCw, ChevronRight, X, AlertTriangle, ArrowUpCircle } from "lucide-react";
+import { Plus, Trash2, FolderKanban, Users, Download, RefreshCw, ChevronRight, X, AlertTriangle, ArrowUpCircle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -39,6 +39,9 @@ export default function CategoriesPage() {
   // État pour la catégorie sélectionnée
   const [selectedCategorie, setSelectedCategorie] = useState(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  
+  // État pour le tri
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   useEffect(() => {
     if (competition) {
@@ -132,6 +135,75 @@ export default function CategoriesPage() {
   const closeDetails = () => {
     setSelectedCategorie(null);
     setDetailsDialogOpen(false);
+  };
+
+  // Fonction de tri
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  // Tri des catégories
+  const sortedCategories = [...categories].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    
+    let aValue, bValue;
+    
+    switch (sortConfig.key) {
+      case 'nom':
+        aValue = a.nom.toLowerCase();
+        bValue = b.nom.toLowerCase();
+        break;
+      case 'age':
+        aValue = a.age_min;
+        bValue = b.age_min;
+        break;
+      case 'sexe':
+        aValue = a.sexe;
+        bValue = b.sexe;
+        break;
+      case 'poids':
+        aValue = a.poids_min;
+        bValue = b.poids_min;
+        break;
+      case 'competiteurs':
+        aValue = getCompetiteursCount(a.categorie_id);
+        bValue = getCompetiteursCount(b.categorie_id);
+        break;
+      default:
+        return 0;
+    }
+    
+    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Composant pour l'en-tête triable
+  const SortableHeader = ({ column, label }) => {
+    const isActive = sortConfig.key === column;
+    return (
+      <TableHead 
+        className="cursor-pointer hover:bg-slate-100 select-none transition-colors"
+        onClick={() => handleSort(column)}
+        data-testid={`sort-${column}`}
+      >
+        <div className="flex items-center gap-1">
+          {label}
+          {isActive ? (
+            sortConfig.direction === 'asc' ? (
+              <ArrowUp className="h-4 w-4 text-indigo-600" />
+            ) : (
+              <ArrowDown className="h-4 w-4 text-indigo-600" />
+            )
+          ) : (
+            <ArrowUpDown className="h-4 w-4 text-slate-400" />
+          )}
+        </div>
+      </TableHead>
+    );
   };
 
   if (loading) {
@@ -302,16 +374,16 @@ export default function CategoriesPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="table-header">
-                        <TableHead>Nom</TableHead>
-                        <TableHead>Tranche d'âge</TableHead>
-                        <TableHead>Sexe</TableHead>
-                        <TableHead>Poids</TableHead>
-                        <TableHead>Compétiteurs</TableHead>
+                        <SortableHeader column="nom" label="Nom" />
+                        <SortableHeader column="age" label="Tranche d'âge" />
+                        <SortableHeader column="sexe" label="Sexe" />
+                        <SortableHeader column="poids" label="Poids" />
+                        <SortableHeader column="competiteurs" label="Compétiteurs" />
                         {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {categories.map((cat) => (
+                      {sortedCategories.map((cat) => (
                         <TableRow 
                           key={cat.categorie_id} 
                           className="hover:bg-slate-50/50 cursor-pointer"
