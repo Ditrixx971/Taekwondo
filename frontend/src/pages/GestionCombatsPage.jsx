@@ -8,6 +8,8 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Progress } from "../components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { 
   Swords, 
   Play, 
@@ -18,10 +20,14 @@ import {
   AlertCircle,
   Trophy,
   Shuffle,
-  Edit3
+  Edit3,
+  X,
+  ChevronRight,
+  Eye,
+  TreeDeciduous
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -34,9 +40,16 @@ export default function GestionCombatsPage() {
   const [categories, setCategories] = useState([]);
   const [combats, setCombats] = useState([]);
   const [aires, setAires] = useState([]);
+  const [allCompetiteurs, setAllCompetiteurs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [repartissant, setRepartissant] = useState(false);
+  
+  // État pour la catégorie sélectionnée
+  const [selectedCategorie, setSelectedCategorie] = useState(null);
+  const [categorieCompetiteurs, setCategorieCompetiteurs] = useState([]);
+  const [arbreData, setArbreData] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     if (competition) {
@@ -53,12 +66,14 @@ export default function GestionCombatsPage() {
         axios.get(`${API}/competiteurs?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
       
-      const allCompetiteurs = competiteursRes.data;
+      const allCompetiteursData = competiteursRes.data;
       const allCombats = combatsRes.data;
+      
+      setAllCompetiteurs(allCompetiteursData);
       
       // Pour chaque catégorie, compter les compétiteurs (sans requête supplémentaire)
       const catsWithCounts = catRes.data.map((cat) => {
-        const competiteurs = allCompetiteurs.filter(c => c.categorie_id === cat.categorie_id);
+        const competiteurs = allCompetiteursData.filter(c => c.categorie_id === cat.categorie_id);
         const catCombats = allCombats.filter(c => c.categorie_id === cat.categorie_id);
         return {
           ...cat,
@@ -137,6 +152,85 @@ export default function GestionCombatsPage() {
     } finally {
       setRepartissant(false);
     }
+  };
+
+  // Charger les détails d'une catégorie (compétiteurs + arbre)
+  const handleSelectCategorie = async (cat) => {
+    setSelectedCategorie(cat);
+    setLoadingDetails(true);
+    
+    try {
+      // Filtrer les compétiteurs de cette catégorie
+      const competiteurs = allCompetiteurs.filter(c => c.categorie_id === cat.categorie_id);
+      setCategorieCompetiteurs(competiteurs);
+      
+      // Charger l'arbre de combat si des combats existent
+      if (cat.nb_combats > 0) {
+        const arbreRes = await axios.get(
+          `${API}/combats/arbre/${cat.categorie_id}`,
+          { withCredentials: true }
+        );
+        setArbreData(arbreRes.data);
+      } else {
+        setArbreData(null);
+      }
+    } catch (error) {
+      console.error("Erreur chargement détails:", error);
+      toast.error("Erreur lors du chargement des détails");
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const closeDetails = () => {
+    setSelectedCategorie(null);
+    setCategorieCompetiteurs([]);
+    setArbreData(null);
+  };
+
+  // Composant mini arbre de combat
+  const MiniCombatNode = ({ combat }) => {
+    const getRougeNom = () => {
+      if (combat.rouge?.nom) return combat.rouge.nom;
+      if (!combat.rouge_id) return "À déterminer";
+      const comp = allCompetiteurs.find(c => c.competiteur_id === combat.rouge_id);
+      return comp ? `${comp.prenom} ${comp.nom.charAt(0)}.` : "?";
+    };
+    
+    const getBleuNom = () => {
+      if (combat.bleu?.nom) return combat.bleu.nom;
+      if (!combat.bleu_id) return "À déterminer";
+      const comp = allCompetiteurs.find(c => c.competiteur_id === combat.bleu_id);
+      return comp ? `${comp.prenom} ${comp.nom.charAt(0)}.` : "?";
+    };
+    
+    return (
+      <div className="relative">
+        <div className={`
+          border rounded-lg p-2 text-xs min-w-[160px]
+          ${combat.termine ? 'bg-green-50 border-green-300' : 
+            combat.statut === 'en_cours' ? 'bg-blue-50 border-blue-300' : 
+            'bg-white border-slate-200'}
+        `}>
+          {/* Nom du combat si personnalisé */}
+          {combat.nom_personnalise && (
+            <div className="text-[10px] text-slate-500 text-center mb-1 truncate">
+              {combat.nom_personnalise}
+            </div>
+          )}
+          <div className={`flex items-center gap-1 p-1 rounded ${combat.vainqueur_id === combat.rouge_id ? 'bg-green-100 font-bold' : ''}`}>
+            <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+            <span className="truncate flex-1">{getRougeNom()}</span>
+            {combat.termine && <span className="ml-auto font-bold">{combat.score_rouge}</span>}
+          </div>
+          <div className={`flex items-center gap-1 p-1 rounded ${combat.vainqueur_id === combat.bleu_id ? 'bg-green-100 font-bold' : ''}`}>
+            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+            <span className="truncate flex-1">{getBleuNom()}</span>
+            {combat.termine && <span className="ml-auto font-bold">{combat.score_bleu}</span>}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const stats = {
@@ -318,7 +412,11 @@ export default function GestionCombatsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 + index * 0.05 }}
                   >
-                    <Card className="border-slate-200 hover:shadow-md transition-all">
+                    <Card 
+                      className="border-slate-200 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
+                      onClick={() => handleSelectCategorie(cat)}
+                      data-testid={`categorie-card-${cat.categorie_id}`}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div>
@@ -340,9 +438,12 @@ export default function GestionCombatsPage() {
                               )}
                             </div>
                           </div>
-                          {catProgress === 100 && (
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                          )}
+                          <div className="flex items-center gap-1">
+                            {catProgress === 100 && (
+                              <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            )}
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          </div>
                         </div>
                         
                         {cat.nb_combats > 0 ? (
@@ -352,7 +453,10 @@ export default function GestionCombatsPage() {
                             <Button 
                               size="sm" 
                               className="w-full mt-2"
-                              onClick={() => genererTableauCategorie(cat.categorie_id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                genererTableauCategorie(cat.categorie_id);
+                              }}
                               disabled={generating}
                             >
                               <Play className="h-3 w-3 mr-1" />
@@ -368,6 +472,198 @@ export default function GestionCombatsPage() {
             </div>
           )}
         </motion.div>
+
+        {/* Panneau de détails de la catégorie */}
+        <Dialog open={!!selectedCategorie} onOpenChange={(open) => !open && closeDetails()}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Swords className="h-5 w-5" />
+                {selectedCategorie?.nom}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {loadingDetails ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-6">
+                {/* Liste des compétiteurs */}
+                <div>
+                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Compétiteurs ({categorieCompetiteurs.length})
+                  </h3>
+                  
+                  {categorieCompetiteurs.length === 0 ? (
+                    <p className="text-slate-500 text-sm">Aucun compétiteur dans cette catégorie</p>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nom</TableHead>
+                            <TableHead>Club</TableHead>
+                            <TableHead>Poids</TableHead>
+                            <TableHead>Statut</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {categorieCompetiteurs.map((comp) => (
+                            <TableRow key={comp.competiteur_id}>
+                              <TableCell className="font-medium">
+                                {comp.prenom} {comp.nom}
+                              </TableCell>
+                              <TableCell>{comp.club}</TableCell>
+                              <TableCell>
+                                {comp.poids_officiel ? (
+                                  <span className="text-green-600 font-bold">{comp.poids_officiel} kg</span>
+                                ) : (
+                                  <span className="text-slate-400">{comp.poids_declare} kg</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {comp.disqualifie ? (
+                                  <Badge variant="destructive">Disqualifié</Badge>
+                                ) : comp.pese ? (
+                                  <Badge className="bg-green-100 text-green-700">Pesé</Badge>
+                                ) : (
+                                  <Badge className="bg-amber-100 text-amber-700">À peser</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Arbre de combat */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                      <TreeDeciduous className="h-4 w-4" />
+                      Arbre des combats
+                    </h3>
+                    {arbreData && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          closeDetails();
+                          navigate(`/arbre-combat?categorie=${selectedCategorie.categorie_id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Vue complète
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {!arbreData ? (
+                    <div className="bg-slate-50 rounded-lg p-6 text-center">
+                      <Swords className="h-8 w-8 mx-auto text-slate-400 mb-2" />
+                      <p className="text-slate-500">Aucun combat généré</p>
+                      {isAdmin && (
+                        <Button 
+                          className="mt-3"
+                          onClick={() => {
+                            genererTableauCategorie(selectedCategorie.categorie_id);
+                            closeDetails();
+                          }}
+                          disabled={generating}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Générer le tableau
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 rounded-lg p-4 overflow-x-auto">
+                      <div className="flex gap-8 items-start justify-center min-w-max">
+                        {/* Quarts de finale */}
+                        {arbreData.arbre?.quart?.length > 0 && (
+                          <div className="flex flex-col gap-4">
+                            <h4 className="text-xs font-bold text-slate-500 text-center uppercase">
+                              Quarts
+                            </h4>
+                            {arbreData.arbre.quart.map((combat) => (
+                              <MiniCombatNode key={combat.combat_id} combat={combat} />
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Demi-finales */}
+                        {arbreData.arbre?.demi?.length > 0 && (
+                          <div className="flex flex-col gap-6 justify-center">
+                            <h4 className="text-xs font-bold text-slate-500 text-center uppercase">
+                              Demi-finales
+                            </h4>
+                            {arbreData.arbre.demi.map((combat) => (
+                              <MiniCombatNode key={combat.combat_id} combat={combat} />
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Finale & Bronze */}
+                        {(arbreData.arbre?.finale?.length > 0 || arbreData.arbre?.bronze?.length > 0) && (
+                          <div className="flex flex-col gap-4 justify-center">
+                            {arbreData.arbre?.finale?.length > 0 && (
+                              <>
+                                <h4 className="text-xs font-bold text-slate-500 text-center uppercase">
+                                  Finale
+                                </h4>
+                                {arbreData.arbre.finale.map((combat) => (
+                                  <MiniCombatNode key={combat.combat_id} combat={combat} />
+                                ))}
+                              </>
+                            )}
+                            
+                            {/* Bronze */}
+                            {arbreData.arbre?.bronze?.length > 0 && (
+                              <>
+                                <h4 className="text-xs font-bold text-slate-500 text-center uppercase mt-4">
+                                  Petite finale
+                                </h4>
+                                {arbreData.arbre.bronze.map((combat) => (
+                                  <MiniCombatNode key={combat.combat_id} combat={combat} />
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Statistiques */}
+                      <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-slate-200">
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-slate-900">
+                            {arbreData.total_combats || 0}
+                          </p>
+                          <p className="text-xs text-slate-500">Combats</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-green-600">
+                            {arbreData.combats_termines || 0}
+                          </p>
+                          <p className="text-xs text-slate-500">Terminés</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-blue-600">
+                            {(arbreData.total_combats || 0) - (arbreData.combats_termines || 0)}
+                          </p>
+                          <p className="text-xs text-slate-500">Restants</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
