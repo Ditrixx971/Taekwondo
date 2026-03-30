@@ -8,10 +8,10 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Plus, Trash2, FolderKanban, Users, Download, RefreshCw } from "lucide-react";
+import { Plus, Trash2, FolderKanban, Users, Download, RefreshCw, ChevronRight, X, AlertTriangle, ArrowUpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -35,6 +35,10 @@ export default function CategoriesPage() {
   const [seeding, setSeeding] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
+  
+  // État pour la catégorie sélectionnée
+  const [selectedCategorie, setSelectedCategorie] = useState(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (competition) {
@@ -112,6 +116,22 @@ export default function CategoriesPage() {
 
   const getCompetiteursCount = (categorieId) => {
     return competiteurs.filter(c => c.categorie_id === categorieId).length;
+  };
+
+  // Obtenir les compétiteurs d'une catégorie
+  const getCompetiteursForCategorie = (categorieId) => {
+    return competiteurs.filter(c => c.categorie_id === categorieId);
+  };
+
+  // Ouvrir les détails d'une catégorie
+  const handleCategorieClick = (cat) => {
+    setSelectedCategorie(cat);
+    setDetailsDialogOpen(true);
+  };
+
+  const closeDetails = () => {
+    setSelectedCategorie(null);
+    setDetailsDialogOpen(false);
   };
 
   if (loading) {
@@ -292,8 +312,18 @@ export default function CategoriesPage() {
                     </TableHeader>
                     <TableBody>
                       {categories.map((cat) => (
-                        <TableRow key={cat.categorie_id} className="hover:bg-slate-50/50">
-                          <TableCell className="font-semibold">{cat.nom}</TableCell>
+                        <TableRow 
+                          key={cat.categorie_id} 
+                          className="hover:bg-slate-50/50 cursor-pointer"
+                          onClick={() => handleCategorieClick(cat)}
+                          data-testid={`categorie-row-${cat.categorie_id}`}
+                        >
+                          <TableCell className="font-semibold">
+                            <div className="flex items-center gap-2">
+                              {cat.nom}
+                              <ChevronRight className="h-4 w-4 text-slate-400" />
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <span className="score-display">{cat.age_min} - {cat.age_max} ans</span>
                           </TableCell>
@@ -317,7 +347,10 @@ export default function CategoriesPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => handleDelete(cat.categorie_id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(cat.categorie_id);
+                                }}
                                 data-testid={`delete-cat-${cat.categorie_id}`}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -348,6 +381,132 @@ export default function CategoriesPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Dialogue détails catégorie */}
+        <Dialog open={detailsDialogOpen} onOpenChange={(open) => !open && closeDetails()}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FolderKanban className="h-5 w-5" />
+                {selectedCategorie?.nom}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedCategorie && (
+                  <div className="flex items-center gap-4 mt-2">
+                    <Badge variant={selectedCategorie.sexe === "M" ? "default" : "secondary"}>
+                      {selectedCategorie.sexe === "M" ? "Masculin" : "Féminin"}
+                    </Badge>
+                    <span className="text-sm">{selectedCategorie.age_min} - {selectedCategorie.age_max} ans</span>
+                    <span className="text-sm">{selectedCategorie.poids_min} - {selectedCategorie.poids_max} kg</span>
+                  </div>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto mt-4">
+              {selectedCategorie && (
+                <>
+                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Compétiteurs ({getCompetiteursForCategorie(selectedCategorie.categorie_id).length})
+                  </h3>
+                  
+                  {getCompetiteursForCategorie(selectedCategorie.categorie_id).length === 0 ? (
+                    <div className="bg-slate-50 rounded-lg p-8 text-center">
+                      <Users className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+                      <p className="text-slate-500">Aucun compétiteur dans cette catégorie</p>
+                      <p className="text-sm text-slate-400 mt-1">
+                        Les compétiteurs sont automatiquement assignés lors de l'inscription
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nom</TableHead>
+                            <TableHead>Club</TableHead>
+                            <TableHead>Poids déclaré</TableHead>
+                            <TableHead>Poids officiel</TableHead>
+                            <TableHead>Statut</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getCompetiteursForCategorie(selectedCategorie.categorie_id).map((comp) => (
+                            <TableRow key={comp.competiteur_id}>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  {comp.prenom} {comp.nom}
+                                  {comp.surclasse && (
+                                    <Badge className="bg-blue-100 text-blue-700 text-xs">
+                                      <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                      Surclassé
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>{comp.club}</TableCell>
+                              <TableCell className="font-mono">{comp.poids_declare} kg</TableCell>
+                              <TableCell>
+                                {comp.poids_officiel ? (
+                                  <span className="font-mono font-bold text-green-600">{comp.poids_officiel} kg</span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {comp.disqualifie ? (
+                                  <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Disqualifié
+                                  </Badge>
+                                ) : comp.pese ? (
+                                  <Badge className="bg-green-100 text-green-700">Pesé</Badge>
+                                ) : (
+                                  <Badge className="bg-amber-100 text-amber-700">À peser</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  
+                  {/* Statistiques */}
+                  {getCompetiteursForCategorie(selectedCategorie.categorie_id).length > 0 && (
+                    <div className="flex justify-center gap-8 mt-4 pt-4 border-t">
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-slate-900">
+                          {getCompetiteursForCategorie(selectedCategorie.categorie_id).length}
+                        </p>
+                        <p className="text-xs text-slate-500">Total</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-green-600">
+                          {getCompetiteursForCategorie(selectedCategorie.categorie_id).filter(c => c.pese).length}
+                        </p>
+                        <p className="text-xs text-slate-500">Pesés</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-amber-600">
+                          {getCompetiteursForCategorie(selectedCategorie.categorie_id).filter(c => !c.pese && !c.disqualifie).length}
+                        </p>
+                        <p className="text-xs text-slate-500">À peser</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-red-600">
+                          {getCompetiteursForCategorie(selectedCategorie.categorie_id).filter(c => c.disqualifie).length}
+                        </p>
+                        <p className="text-xs text-slate-500">Disqualifiés</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
