@@ -120,6 +120,22 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Tri ascendant/descendant en cliquant sur l'en-tête
   - Compatible avec la recherche et les filtres existants
 
+### Phase 11 (30 Mar 2026) - Refonte Ordre des Combats ✅
+- **Affichage complet des combattants**: Nom complet + Club + Catégorie affichés pour chaque combattant
+- **Combats "À déterminer"**: Toujours visibles avec badge TBD et bordure en pointillés
+- **Export PDF** (jsPDF + jspdf-autotable):
+  - Format A4 Paysage
+  - Header avec nom de la compétition et titre "ORDRE DE PASSAGE DES COMBATS"
+  - Footer avec date/heure de génération et numéro de page
+  - Tableau avec colonnes: #, Heure, Aire, Tour, Catégorie, BLEU, ROUGE, Statut
+  - Couleurs différenciées pour les combattants Bleu/Rouge
+- **Impression optimisée** (CSS @media print):
+  - Masquage automatique de la sidebar et éléments non imprimables
+  - Format A4 paysage forcé
+  - Titre personnalisé avec statistiques
+- **Statistiques étendues**: 5 compteurs (Total, Terminés, En cours, À déterminer, Finales)
+- **Vues Colonnes/Unifié**: Basculement entre vue par aire et vue chronologique
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs
@@ -171,6 +187,7 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 ## Test Status
 - **Backend**: 100% (iteration_7.json - 26/26 tests Combat Manuel Backend)
 - **Frontend**: 100% (iteration_8.json - 18/18 tests Combat Manuel Frontend)
+- **OrdreCombatsPage**: 100% (iteration_9.json - 13/13 tests refonte UI + PDF)
 - **Test files**: 
   - `/app/backend/tests/test_aires_combat_arbitre.py`
   - `/app/backend/tests/test_phase1_features.py`
