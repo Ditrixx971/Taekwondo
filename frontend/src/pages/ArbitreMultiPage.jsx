@@ -10,6 +10,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Checkbox } from "../components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { 
   ArrowLeft, 
   Play, 
@@ -23,27 +24,203 @@ import {
   Pause,
   XCircle,
   RefreshCw,
-  Columns
+  Columns,
+  AlertTriangle,
+  Minus,
+  Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Composant pour un round individuel
+function RoundScoring({ 
+  roundNumber, 
+  scoreRouge, 
+  scoreBleu, 
+  onScoreChange, 
+  penaliteRouge, 
+  penaliteBleu,
+  onPenaliteChange,
+  disabled 
+}) {
+  const gagnantRouge = scoreRouge > scoreBleu || penaliteBleu;
+  const gagnantBleu = scoreBleu > scoreRouge || penaliteRouge;
+  
+  return (
+    <div className="border rounded-lg p-2 bg-white">
+      <div className="text-center text-xs font-bold text-slate-500 mb-2">
+        Round {roundNumber}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {/* Rouge */}
+        <div className={`text-center p-2 rounded-lg transition-all ${
+          gagnantRouge ? 'bg-red-200 ring-2 ring-red-500' : 'bg-red-50'
+        }`}>
+          <div className="flex items-center justify-center gap-1 mb-1">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-6 w-6 p-0"
+              onClick={() => onScoreChange('rouge', Math.max(0, scoreRouge - 1))}
+              disabled={disabled}
+            >
+              <Minus className="h-3 w-3" />
+            </Button>
+            <span className="font-bold text-lg w-8">{scoreRouge}</span>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-6 w-6 p-0"
+              onClick={() => onScoreChange('rouge', scoreRouge + 1)}
+              disabled={disabled}
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+          <label className="flex items-center justify-center gap-1 text-xs cursor-pointer">
+            <Checkbox 
+              checked={penaliteRouge} 
+              onCheckedChange={(checked) => onPenaliteChange('rouge', checked)}
+              disabled={disabled}
+              className="h-3 w-3"
+            />
+            <span className="text-red-600">Pénalité</span>
+          </label>
+        </div>
+        
+        {/* Bleu */}
+        <div className={`text-center p-2 rounded-lg transition-all ${
+          gagnantBleu ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-blue-50'
+        }`}>
+          <div className="flex items-center justify-center gap-1 mb-1">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-6 w-6 p-0"
+              onClick={() => onScoreChange('bleu', Math.max(0, scoreBleu - 1))}
+              disabled={disabled}
+            >
+              <Minus className="h-3 w-3" />
+            </Button>
+            <span className="font-bold text-lg w-8">{scoreBleu}</span>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-6 w-6 p-0"
+              onClick={() => onScoreChange('bleu', scoreBleu + 1)}
+              disabled={disabled}
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+          <label className="flex items-center justify-center gap-1 text-xs cursor-pointer">
+            <Checkbox 
+              checked={penaliteBleu} 
+              onCheckedChange={(checked) => onPenaliteChange('bleu', checked)}
+              disabled={disabled}
+              className="h-3 w-3"
+            />
+            <span className="text-blue-600">Pénalité</span>
+          </label>
+        </div>
+      </div>
+      {/* Indicateur du gagnant du round */}
+      {(gagnantRouge || gagnantBleu) && (
+        <div className={`text-center text-xs font-bold mt-1 ${
+          gagnantRouge ? 'text-red-600' : 'text-blue-600'
+        }`}>
+          {penaliteRouge ? '⚠ Rouge pénalisé' : penaliteBleu ? '⚠ Bleu pénalisé' : 
+           gagnantRouge ? '← Round Rouge' : '→ Round Bleu'}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Composant pour une aire de combat compacte
 function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
-  const [scores, setScores] = useState({ rouge: 0, bleu: 0 });
+  const [rounds, setRounds] = useState([
+    { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false },
+    { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false },
+    { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false }
+  ]);
   const [submitting, setSubmitting] = useState(false);
 
   const combatEnCours = data?.combat_en_cours;
   const prochainCombat = data?.combats_a_venir?.[0];
 
+  // Reset rounds when combat changes
+  useEffect(() => {
+    if (combatEnCours) {
+      setRounds([
+        { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false },
+        { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false },
+        { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false }
+      ]);
+    }
+  }, [combatEnCours?.combat_id]);
+
+  const handleScoreChange = (roundIndex, couleur, value) => {
+    setRounds(prev => {
+      const newRounds = [...prev];
+      newRounds[roundIndex] = { ...newRounds[roundIndex], [couleur]: value };
+      return newRounds;
+    });
+  };
+
+  const handlePenaliteChange = (roundIndex, couleur, checked) => {
+    const field = couleur === 'rouge' ? 'penaliteRouge' : 'penaliteBleu';
+    setRounds(prev => {
+      const newRounds = [...prev];
+      newRounds[roundIndex] = { ...newRounds[roundIndex], [field]: checked };
+      return newRounds;
+    });
+  };
+
+  // Calculer le vainqueur basé sur les rounds
+  const calculateWinner = () => {
+    let roundsRouge = 0;
+    let roundsBleu = 0;
+    let totalRouge = 0;
+    let totalBleu = 0;
+
+    rounds.forEach(round => {
+      totalRouge += round.rouge;
+      totalBleu += round.bleu;
+      
+      // Déterminer le gagnant du round
+      if (round.penaliteRouge) {
+        roundsBleu++;
+      } else if (round.penaliteBleu) {
+        roundsRouge++;
+      } else if (round.rouge > round.bleu) {
+        roundsRouge++;
+      } else if (round.bleu > round.rouge) {
+        roundsBleu++;
+      }
+    });
+
+    return { roundsRouge, roundsBleu, totalRouge, totalBleu };
+  };
+
+  const { roundsRouge, roundsBleu, totalRouge, totalBleu } = calculateWinner();
+
   const handleResultat = async (vainqueur) => {
     if (!combatEnCours) return;
     setSubmitting(true);
     try {
-      await onResultat(combatEnCours.combat_id, vainqueur, scores);
-      setScores({ rouge: 0, bleu: 0 });
+      // Déterminer le type de victoire
+      const hasPenalite = rounds.some(r => r.penaliteRouge || r.penaliteBleu);
+      const typeVictoire = hasPenalite ? "penalite" : "normal";
+      
+      await onResultat(combatEnCours.combat_id, vainqueur, { rouge: totalRouge, bleu: totalBleu }, typeVictoire);
+      setRounds([
+        { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false },
+        { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false },
+        { rouge: 0, bleu: 0, penaliteRouge: false, penaliteBleu: false }
+      ]);
     } finally {
       setSubmitting(false);
     }
@@ -56,7 +233,7 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
   };
 
   return (
-    <Card className={`flex-1 min-w-[350px] border-2 ${
+    <Card className={`flex-1 min-w-[400px] border-2 ${
       combatEnCours ? "border-blue-500" : "border-slate-200"
     }`}>
       {/* Header de l'aire */}
@@ -93,61 +270,96 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
               <Badge variant="outline">{combatEnCours.tour}</Badge>
             </div>
             
-            <div className="text-center text-xs text-slate-500">
-              {combatEnCours.categorie?.nom}
+            {/* Catégorie en évidence */}
+            <div className="text-center">
+              <Badge className="bg-slate-700 text-white">
+                {combatEnCours.categorie?.nom}
+              </Badge>
             </div>
 
-            {/* Combattants */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Combattants avec noms complets */}
+            <div className="grid grid-cols-2 gap-3">
               {/* Rouge */}
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+              <div className={`border-2 rounded-lg p-3 text-center transition-all ${
+                roundsRouge > roundsBleu ? 'bg-red-100 border-red-500 ring-2 ring-red-300' : 'bg-red-50 border-red-200'
+              }`}>
                 <Badge className="bg-red-500 mb-2">ROUGE</Badge>
-                <p className="font-bold text-red-700 text-sm">
-                  {combatEnCours.rouge?.prenom} {combatEnCours.rouge?.nom}
+                <p className="font-bold text-red-700 text-base">
+                  {combatEnCours.rouge?.prenom}
                 </p>
-                <p className="text-xs text-red-500">{combatEnCours.rouge?.club}</p>
-                <Input
-                  type="number"
-                  min="0"
-                  value={scores.rouge}
-                  onChange={(e) => setScores({ ...scores, rouge: parseInt(e.target.value) || 0 })}
-                  className="mt-2 text-center h-10 text-lg font-bold"
-                />
-                <Button 
-                  className="w-full mt-2 bg-red-500 hover:bg-red-600"
-                  onClick={() => handleResultat("rouge")}
-                  disabled={submitting}
-                  size="sm"
-                >
-                  <Trophy className="h-4 w-4 mr-1" />
-                  VAINQUEUR
-                </Button>
+                <p className="font-bold text-red-700 text-base">
+                  {combatEnCours.rouge?.nom}
+                </p>
+                <p className="text-xs text-red-500 mt-1">{combatEnCours.rouge?.club}</p>
+                
+                {/* Score total rounds */}
+                <div className="mt-2 pt-2 border-t border-red-200">
+                  <p className="text-xs text-slate-500">Rounds gagnés</p>
+                  <p className="text-2xl font-black text-red-600">{roundsRouge}</p>
+                  <p className="text-xs text-slate-500">Points: {totalRouge}</p>
+                </div>
               </div>
 
               {/* Bleu */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+              <div className={`border-2 rounded-lg p-3 text-center transition-all ${
+                roundsBleu > roundsRouge ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-300' : 'bg-blue-50 border-blue-200'
+              }`}>
                 <Badge className="bg-blue-500 mb-2">BLEU</Badge>
-                <p className="font-bold text-blue-700 text-sm">
-                  {combatEnCours.bleu?.prenom} {combatEnCours.bleu?.nom}
+                <p className="font-bold text-blue-700 text-base">
+                  {combatEnCours.bleu?.prenom}
                 </p>
-                <p className="text-xs text-blue-500">{combatEnCours.bleu?.club}</p>
-                <Input
-                  type="number"
-                  min="0"
-                  value={scores.bleu}
-                  onChange={(e) => setScores({ ...scores, bleu: parseInt(e.target.value) || 0 })}
-                  className="mt-2 text-center h-10 text-lg font-bold"
-                />
-                <Button 
-                  className="w-full mt-2 bg-blue-500 hover:bg-blue-600"
-                  onClick={() => handleResultat("bleu")}
-                  disabled={submitting}
-                  size="sm"
-                >
-                  <Trophy className="h-4 w-4 mr-1" />
-                  VAINQUEUR
-                </Button>
+                <p className="font-bold text-blue-700 text-base">
+                  {combatEnCours.bleu?.nom}
+                </p>
+                <p className="text-xs text-blue-500 mt-1">{combatEnCours.bleu?.club}</p>
+                
+                {/* Score total rounds */}
+                <div className="mt-2 pt-2 border-t border-blue-200">
+                  <p className="text-xs text-slate-500">Rounds gagnés</p>
+                  <p className="text-2xl font-black text-blue-600">{roundsBleu}</p>
+                  <p className="text-xs text-slate-500">Points: {totalBleu}</p>
+                </div>
               </div>
+            </div>
+
+            {/* 3 Rounds de scoring */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-center text-slate-600 uppercase">Scoring par Round</p>
+              <div className="grid grid-cols-3 gap-2">
+                {rounds.map((round, index) => (
+                  <RoundScoring
+                    key={index}
+                    roundNumber={index + 1}
+                    scoreRouge={round.rouge}
+                    scoreBleu={round.bleu}
+                    penaliteRouge={round.penaliteRouge}
+                    penaliteBleu={round.penaliteBleu}
+                    onScoreChange={(couleur, value) => handleScoreChange(index, couleur, value)}
+                    onPenaliteChange={(couleur, checked) => handlePenaliteChange(index, couleur, checked)}
+                    disabled={submitting}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Boutons de victoire */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <Button 
+                className="bg-red-500 hover:bg-red-600"
+                onClick={() => handleResultat("rouge")}
+                disabled={submitting}
+              >
+                <Trophy className="h-4 w-4 mr-1" />
+                ROUGE GAGNE
+              </Button>
+              <Button 
+                className="bg-blue-500 hover:bg-blue-600"
+                onClick={() => handleResultat("bleu")}
+                disabled={submitting}
+              >
+                <Trophy className="h-4 w-4 mr-1" />
+                BLEU GAGNE
+              </Button>
             </div>
           </div>
         ) : prochainCombat ? (
@@ -159,23 +371,32 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
               <Badge variant="outline">{prochainCombat.tour}</Badge>
             </div>
 
-            <div className="text-center text-xs text-slate-500">
-              {prochainCombat.categorie?.nom}
+            {/* Catégorie */}
+            <div className="text-center">
+              <Badge className="bg-slate-600 text-white">
+                {prochainCombat.categorie?.nom}
+              </Badge>
             </div>
 
-            <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+            <div className="flex items-center justify-between bg-slate-50 rounded-lg p-4">
               <div className="text-center flex-1">
-                <p className="font-bold text-red-600 text-sm">
-                  {prochainCombat.rouge?.prenom} {prochainCombat.rouge?.nom}
+                <p className="font-bold text-red-600">
+                  {prochainCombat.rouge?.prenom}
                 </p>
-                <p className="text-xs text-slate-500">{prochainCombat.rouge?.club}</p>
+                <p className="font-bold text-red-600">
+                  {prochainCombat.rouge?.nom}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{prochainCombat.rouge?.club}</p>
               </div>
-              <span className="font-bold text-slate-400 px-2">VS</span>
+              <span className="font-black text-2xl text-slate-300 px-4">VS</span>
               <div className="text-center flex-1">
-                <p className="font-bold text-blue-600 text-sm">
-                  {prochainCombat.bleu?.prenom} {prochainCombat.bleu?.nom}
+                <p className="font-bold text-blue-600">
+                  {prochainCombat.bleu?.prenom}
                 </p>
-                <p className="text-xs text-slate-500">{prochainCombat.bleu?.club}</p>
+                <p className="font-bold text-blue-600">
+                  {prochainCombat.bleu?.nom}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{prochainCombat.bleu?.club}</p>
               </div>
             </div>
 
@@ -208,10 +429,10 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
                   key={combat.combat_id}
                   className="flex items-center gap-2 text-xs bg-slate-50 rounded p-2"
                 >
-                  <Badge variant="outline" className="text-xs">{combat.tour}</Badge>
-                  <span className="text-red-600">{combat.rouge?.prenom?.[0]}. {combat.rouge?.nom}</span>
-                  <span className="text-slate-400">vs</span>
-                  <span className="text-blue-600">{combat.bleu?.prenom?.[0]}. {combat.bleu?.nom}</span>
+                  <Badge variant="outline" className="text-xs flex-shrink-0">{combat.tour}</Badge>
+                  <span className="text-red-600 truncate">{combat.rouge?.prenom} {combat.rouge?.nom}</span>
+                  <span className="text-slate-400 flex-shrink-0">vs</span>
+                  <span className="text-blue-600 truncate">{combat.bleu?.prenom} {combat.bleu?.nom}</span>
                 </div>
               ))}
             </div>
@@ -319,7 +540,7 @@ export default function ArbitreMultiPage() {
     }
   };
 
-  const saisirResultat = async (combatId, vainqueur, scores) => {
+  const saisirResultat = async (combatId, vainqueur, scores, typeVictoire = "normal") => {
     try {
       await axios.post(
         `${API}/arbitre/resultat/${combatId}`,
@@ -329,7 +550,7 @@ export default function ArbitreMultiPage() {
             vainqueur,
             score_rouge: scores.rouge,
             score_bleu: scores.bleu,
-            type_victoire: "normal"
+            type_victoire: typeVictoire
           },
           withCredentials: true 
         }
