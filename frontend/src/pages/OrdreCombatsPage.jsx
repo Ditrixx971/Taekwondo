@@ -126,19 +126,6 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
       {/* Combattants */}
       <div className="flex-1 flex gap-2 items-center">
         <div className={`flex-1 p-2 rounded text-center ${
-          combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
-        }`}>
-          <span className="font-bold text-red-700">
-            {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
-          </span>
-          {combat.rouge?.club && (
-            <span className="text-xs text-red-500 block">{combat.rouge.club}</span>
-          )}
-        </div>
-
-        <span className="font-black text-slate-400">VS</span>
-
-        <div className={`flex-1 p-2 rounded text-center ${
           combat.vainqueur_id === combat.bleu_id ? "bg-blue-100 ring-2 ring-blue-400" : "bg-blue-50"
         }`}>
           <span className="font-bold text-blue-700">
@@ -146,6 +133,19 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
           </span>
           {combat.bleu?.club && (
             <span className="text-xs text-blue-500 block">{combat.bleu.club}</span>
+          )}
+        </div>
+
+        <span className="font-black text-slate-400">VS</span>
+
+        <div className={`flex-1 p-2 rounded text-center ${
+          combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
+        }`}>
+          <span className="font-bold text-red-700">
+            {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
+          </span>
+          {combat.rouge?.club && (
+            <span className="text-xs text-red-500 block">{combat.rouge.club}</span>
           )}
         </div>
       </div>
@@ -167,17 +167,6 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
       {/* Actions forfait */}
       {!combat.termine && (
         <div className="flex gap-1 print:hidden">
-          {combat.rouge_id && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-red-500 hover:bg-red-50 p-1"
-              onClick={() => onForfait(combat, combat.rouge_id, "rouge")}
-              title="Forfait Rouge"
-            >
-              <XCircle className="h-4 w-4" />
-            </Button>
-          )}
           {combat.bleu_id && (
             <Button
               size="sm"
@@ -185,6 +174,17 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
               className="text-blue-500 hover:bg-blue-50 p-1"
               onClick={() => onForfait(combat, combat.bleu_id, "bleu")}
               title="Forfait Bleu"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          )}
+          {combat.rouge_id && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-500 hover:bg-red-50 p-1"
+              onClick={() => onForfait(combat, combat.rouge_id, "rouge")}
+              title="Forfait Rouge"
             >
               <XCircle className="h-4 w-4" />
             </Button>
@@ -701,18 +701,18 @@ export default function OrdreCombatsPage() {
                         {/* Combattants */}
                         <div className="flex-1 flex gap-2 items-center">
                           <div className={`flex-1 p-2 rounded text-center ${
-                            combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
-                          }`}>
-                            <span className="font-bold text-red-700">
-                              {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
-                            </span>
-                          </div>
-                          <span className="font-black text-slate-400">VS</span>
-                          <div className={`flex-1 p-2 rounded text-center ${
                             combat.vainqueur_id === combat.bleu_id ? "bg-blue-100 ring-2 ring-blue-400" : "bg-blue-50"
                           }`}>
                             <span className="font-bold text-blue-700">
                               {combat.bleu ? `${combat.bleu.prenom} ${combat.bleu.nom}` : "En attente"}
+                            </span>
+                          </div>
+                          <span className="font-black text-slate-400">VS</span>
+                          <div className={`flex-1 p-2 rounded text-center ${
+                            combat.vainqueur_id === combat.rouge_id ? "bg-red-100 ring-2 ring-red-400" : "bg-red-50"
+                          }`}>
+                            <span className="font-bold text-red-700">
+                              {combat.rouge ? `${combat.rouge.prenom} ${combat.rouge.nom}` : "En attente"}
                             </span>
                           </div>
                         </div>

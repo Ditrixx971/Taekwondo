@@ -54,55 +54,6 @@ function RoundScoring({
         Round {roundNumber}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {/* Rouge */}
-        <div className={`text-center p-2 rounded-lg transition-all ${
-          gagnantRouge ? 'bg-red-200 ring-2 ring-red-500 shadow-md' : 'bg-red-50'
-        }`}>
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-7 w-7 p-0 hover:bg-red-200"
-              onClick={() => onScoreChange('rouge', Math.max(0, scoreRouge - 1))}
-              disabled={disabled}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <Input
-              type="number"
-              min="0"
-              max="99"
-              value={scoreRouge}
-              onChange={(e) => onScoreChange('rouge', Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-12 h-8 text-center font-bold text-lg p-0 border-red-300"
-              disabled={disabled}
-            />
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-7 w-7 p-0 hover:bg-red-200"
-              onClick={() => onScoreChange('rouge', scoreRouge + 1)}
-              disabled={disabled}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <label className="flex items-center justify-center gap-1 text-xs cursor-pointer">
-            <Checkbox 
-              checked={penaliteRouge} 
-              onCheckedChange={(checked) => onPenaliteChange('rouge', checked)}
-              disabled={disabled}
-              className="h-3 w-3"
-            />
-            <span className="text-red-600">Pénalité</span>
-          </label>
-          {gagnantRouge && (
-            <div className="text-xs font-bold text-red-600 mt-1">
-              {penaliteBleu ? '⚠ Bleu pénalisé' : '✓ Round'}
-            </div>
-          )}
-        </div>
-        
         {/* Bleu */}
         <div className={`text-center p-2 rounded-lg transition-all ${
           gagnantBleu ? 'bg-blue-200 ring-2 ring-blue-500 shadow-md' : 'bg-blue-50'
@@ -148,6 +99,55 @@ function RoundScoring({
           {gagnantBleu && (
             <div className="text-xs font-bold text-blue-600 mt-1">
               {penaliteRouge ? '⚠ Rouge pénalisé' : '✓ Round'}
+            </div>
+          )}
+        </div>
+        
+        {/* Rouge */}
+        <div className={`text-center p-2 rounded-lg transition-all ${
+          gagnantRouge ? 'bg-red-200 ring-2 ring-red-500 shadow-md' : 'bg-red-50'
+        }`}>
+          <div className="flex items-center justify-center gap-1 mb-1">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-7 w-7 p-0 hover:bg-red-200"
+              onClick={() => onScoreChange('rouge', Math.max(0, scoreRouge - 1))}
+              disabled={disabled}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Input
+              type="number"
+              min="0"
+              max="99"
+              value={scoreRouge}
+              onChange={(e) => onScoreChange('rouge', Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-12 h-8 text-center font-bold text-lg p-0 border-red-300"
+              disabled={disabled}
+            />
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-7 w-7 p-0 hover:bg-red-200"
+              onClick={() => onScoreChange('rouge', scoreRouge + 1)}
+              disabled={disabled}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <label className="flex items-center justify-center gap-1 text-xs cursor-pointer">
+            <Checkbox 
+              checked={penaliteRouge} 
+              onCheckedChange={(checked) => onPenaliteChange('rouge', checked)}
+              disabled={disabled}
+              className="h-3 w-3"
+            />
+            <span className="text-red-600">Pénalité</span>
+          </label>
+          {gagnantRouge && (
+            <div className="text-xs font-bold text-red-600 mt-1">
+              {penaliteBleu ? '⚠ Bleu pénalisé' : '✓ Round'}
             </div>
           )}
         </div>
@@ -296,27 +296,6 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
 
             {/* Combattants avec noms complets */}
             <div className="grid grid-cols-2 gap-3">
-              {/* Rouge */}
-              <div className={`border-2 rounded-lg p-3 text-center transition-all ${
-                roundsRouge > roundsBleu ? 'bg-red-100 border-red-500 ring-2 ring-red-300' : 'bg-red-50 border-red-200'
-              }`}>
-                <Badge className="bg-red-500 mb-2">ROUGE</Badge>
-                <p className="font-bold text-red-700 text-base">
-                  {combatEnCours.rouge?.prenom}
-                </p>
-                <p className="font-bold text-red-700 text-base">
-                  {combatEnCours.rouge?.nom}
-                </p>
-                <p className="text-xs text-red-500 mt-1">{combatEnCours.rouge?.club}</p>
-                
-                {/* Score total rounds */}
-                <div className="mt-2 pt-2 border-t border-red-200">
-                  <p className="text-xs text-slate-500">Rounds gagnés</p>
-                  <p className="text-2xl font-black text-red-600">{roundsRouge}</p>
-                  <p className="text-xs text-slate-500">Points: {totalRouge}</p>
-                </div>
-              </div>
-
               {/* Bleu */}
               <div className={`border-2 rounded-lg p-3 text-center transition-all ${
                 roundsBleu > roundsRouge ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-300' : 'bg-blue-50 border-blue-200'
@@ -335,6 +314,27 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
                   <p className="text-xs text-slate-500">Rounds gagnés</p>
                   <p className="text-2xl font-black text-blue-600">{roundsBleu}</p>
                   <p className="text-xs text-slate-500">Points: {totalBleu}</p>
+                </div>
+              </div>
+
+              {/* Rouge */}
+              <div className={`border-2 rounded-lg p-3 text-center transition-all ${
+                roundsRouge > roundsBleu ? 'bg-red-100 border-red-500 ring-2 ring-red-300' : 'bg-red-50 border-red-200'
+              }`}>
+                <Badge className="bg-red-500 mb-2">ROUGE</Badge>
+                <p className="font-bold text-red-700 text-base">
+                  {combatEnCours.rouge?.prenom}
+                </p>
+                <p className="font-bold text-red-700 text-base">
+                  {combatEnCours.rouge?.nom}
+                </p>
+                <p className="text-xs text-red-500 mt-1">{combatEnCours.rouge?.club}</p>
+                
+                {/* Score total rounds */}
+                <div className="mt-2 pt-2 border-t border-red-200">
+                  <p className="text-xs text-slate-500">Rounds gagnés</p>
+                  <p className="text-2xl font-black text-red-600">{roundsRouge}</p>
+                  <p className="text-xs text-slate-500">Points: {totalRouge}</p>
                 </div>
               </div>
             </div>
@@ -362,20 +362,20 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
             {/* Boutons de victoire */}
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Button 
-                className="bg-red-500 hover:bg-red-600"
-                onClick={() => handleResultat("rouge")}
-                disabled={submitting}
-              >
-                <Trophy className="h-4 w-4 mr-1" />
-                ROUGE GAGNE
-              </Button>
-              <Button 
                 className="bg-blue-500 hover:bg-blue-600"
                 onClick={() => handleResultat("bleu")}
                 disabled={submitting}
               >
                 <Trophy className="h-4 w-4 mr-1" />
                 BLEU GAGNE
+              </Button>
+              <Button 
+                className="bg-red-500 hover:bg-red-600"
+                onClick={() => handleResultat("rouge")}
+                disabled={submitting}
+              >
+                <Trophy className="h-4 w-4 mr-1" />
+                ROUGE GAGNE
               </Button>
             </div>
           </div>
@@ -397,16 +397,6 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
 
             <div className="flex items-center justify-between bg-slate-50 rounded-lg p-4">
               <div className="text-center flex-1">
-                <p className="font-bold text-red-600">
-                  {prochainCombat.rouge?.prenom}
-                </p>
-                <p className="font-bold text-red-600">
-                  {prochainCombat.rouge?.nom}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{prochainCombat.rouge?.club}</p>
-              </div>
-              <span className="font-black text-2xl text-slate-300 px-4">VS</span>
-              <div className="text-center flex-1">
                 <p className="font-bold text-blue-600">
                   {prochainCombat.bleu?.prenom}
                 </p>
@@ -414,6 +404,16 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
                   {prochainCombat.bleu?.nom}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">{prochainCombat.bleu?.club}</p>
+              </div>
+              <span className="font-black text-2xl text-slate-300 px-4">VS</span>
+              <div className="text-center flex-1">
+                <p className="font-bold text-red-600">
+                  {prochainCombat.rouge?.prenom}
+                </p>
+                <p className="font-bold text-red-600">
+                  {prochainCombat.rouge?.nom}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{prochainCombat.rouge?.club}</p>
               </div>
             </div>
 
@@ -453,12 +453,12 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-red-600 font-medium truncate flex-1">
-                      {combat.rouge?.prenom} {combat.rouge?.nom}
+                    <span className="text-blue-600 font-medium truncate flex-1">
+                      {combat.bleu?.prenom} {combat.bleu?.nom}
                     </span>
                     <span className="text-slate-400 flex-shrink-0">vs</span>
-                    <span className="text-blue-600 font-medium truncate flex-1 text-right">
-                      {combat.bleu?.prenom} {combat.bleu?.nom}
+                    <span className="text-red-600 font-medium truncate flex-1 text-right">
+                      {combat.rouge?.prenom} {combat.rouge?.nom}
                     </span>
                   </div>
                 </div>

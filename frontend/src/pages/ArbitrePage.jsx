@@ -166,43 +166,6 @@ export default function ArbitrePage() {
                 
                 <CardContent className="p-6">
                   <div className="grid grid-cols-5 gap-4 items-center">
-                    {/* Rouge */}
-                    <div className="col-span-2">
-                      <div className="bg-red-500/20 border-2 border-red-500 rounded-xl p-6 text-center">
-                        <Badge className="bg-red-500 mb-3">ROUGE</Badge>
-                        <h3 className="text-2xl font-black text-white">
-                          {combatEnCours.rouge?.prenom} {combatEnCours.rouge?.nom}
-                        </h3>
-                        <p className="text-red-200 text-sm mt-1">
-                          {combatEnCours.rouge?.club}
-                        </p>
-                        <div className="mt-4">
-                          <Label className="text-white/70 text-xs">Score</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={scores.rouge}
-                            onChange={(e) => setScores({ ...scores, rouge: parseInt(e.target.value) || 0 })}
-                            className="text-center text-3xl font-bold bg-white/10 border-red-500/50 text-white h-16"
-                          />
-                        </div>
-                        <Button 
-                          className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-6 text-xl"
-                          onClick={() => saisirResultat("rouge")}
-                          disabled={submitting}
-                          data-testid="win-rouge-btn"
-                        >
-                          <Trophy className="h-6 w-6 mr-2" />
-                          VAINQUEUR
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* VS */}
-                    <div className="col-span-1 text-center">
-                      <div className="text-5xl font-black text-white/50">VS</div>
-                    </div>
-
                     {/* Bleu */}
                     <div className="col-span-2">
                       <div className="bg-blue-500/20 border-2 border-blue-500 rounded-xl p-6 text-center">
@@ -228,6 +191,43 @@ export default function ArbitrePage() {
                           onClick={() => saisirResultat("bleu")}
                           disabled={submitting}
                           data-testid="win-bleu-btn"
+                        >
+                          <Trophy className="h-6 w-6 mr-2" />
+                          VAINQUEUR
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* VS */}
+                    <div className="col-span-1 text-center">
+                      <div className="text-5xl font-black text-white/50">VS</div>
+                    </div>
+
+                    {/* Rouge */}
+                    <div className="col-span-2">
+                      <div className="bg-red-500/20 border-2 border-red-500 rounded-xl p-6 text-center">
+                        <Badge className="bg-red-500 mb-3">ROUGE</Badge>
+                        <h3 className="text-2xl font-black text-white">
+                          {combatEnCours.rouge?.prenom} {combatEnCours.rouge?.nom}
+                        </h3>
+                        <p className="text-red-200 text-sm mt-1">
+                          {combatEnCours.rouge?.club}
+                        </p>
+                        <div className="mt-4">
+                          <Label className="text-white/70 text-xs">Score</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={scores.rouge}
+                            onChange={(e) => setScores({ ...scores, rouge: parseInt(e.target.value) || 0 })}
+                            className="text-center text-3xl font-bold bg-white/10 border-red-500/50 text-white h-16"
+                          />
+                        </div>
+                        <Button 
+                          className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-6 text-xl"
+                          onClick={() => saisirResultat("rouge")}
+                          disabled={submitting}
+                          data-testid="win-rouge-btn"
                         >
                           <Trophy className="h-6 w-6 mr-2" />
                           VAINQUEUR
@@ -262,22 +262,22 @@ export default function ArbitrePage() {
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4 items-center mb-6">
-                    <div className="text-center p-4 bg-red-500/10 rounded-lg border border-red-500/30">
-                      <Badge className="bg-red-500 mb-2">ROUGE</Badge>
-                      <p className="text-white font-bold">
-                        {prochainCombat.rouge ? `${prochainCombat.rouge.prenom} ${prochainCombat.rouge.nom}` : "En attente"}
-                      </p>
-                      <p className="text-slate-400 text-xs">{prochainCombat.rouge?.club}</p>
-                    </div>
-                    <div className="text-center">
-                      <span className="text-3xl font-black text-white/30">VS</span>
-                    </div>
                     <div className="text-center p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
                       <Badge className="bg-blue-500 mb-2">BLEU</Badge>
                       <p className="text-white font-bold">
                         {prochainCombat.bleu ? `${prochainCombat.bleu.prenom} ${prochainCombat.bleu.nom}` : "En attente"}
                       </p>
                       <p className="text-slate-400 text-xs">{prochainCombat.bleu?.club}</p>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-3xl font-black text-white/30">VS</span>
+                    </div>
+                    <div className="text-center p-4 bg-red-500/10 rounded-lg border border-red-500/30">
+                      <Badge className="bg-red-500 mb-2">ROUGE</Badge>
+                      <p className="text-white font-bold">
+                        {prochainCombat.rouge ? `${prochainCombat.rouge.prenom} ${prochainCombat.rouge.nom}` : "En attente"}
+                      </p>
+                      <p className="text-slate-400 text-xs">{prochainCombat.rouge?.club}</p>
                     </div>
                   </div>
 
@@ -350,9 +350,9 @@ export default function ArbitrePage() {
                         </Badge>
                         <div>
                           <p className="text-white text-sm font-medium">
-                            {combat.rouge?.prenom} {combat.rouge?.nom?.charAt(0)}. 
+                            <span className="text-blue-400">{combat.bleu?.prenom} {combat.bleu?.nom?.charAt(0)}.</span>
                             <span className="text-slate-400 mx-2">vs</span>
-                            {combat.bleu?.prenom} {combat.bleu?.nom?.charAt(0)}.
+                            <span className="text-red-400">{combat.rouge?.prenom} {combat.rouge?.nom?.charAt(0)}.</span>
                           </p>
                           <p className="text-slate-400 text-xs">
                             {combat.categorie?.nom}
