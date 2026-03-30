@@ -406,7 +406,7 @@ export default function ArbreCombatPage() {
               </h1>
               {arbreData && (
                 <p className="text-sm text-slate-500 mt-1">
-                  Bracket de {arbreData.bracket_size || "?"} • {arbreData.num_byes || 0} BYE(s)
+                  Bracket de {arbreData.bracket_size || arbreData.total_combats + 1 || "?"} • {arbreData.num_byes || 0} BYE(s)
                 </p>
               )}
             </div>
