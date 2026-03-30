@@ -56,27 +56,35 @@ function RoundScoring({
       <div className="grid grid-cols-2 gap-2">
         {/* Rouge */}
         <div className={`text-center p-2 rounded-lg transition-all ${
-          gagnantRouge ? 'bg-red-200 ring-2 ring-red-500' : 'bg-red-50'
+          gagnantRouge ? 'bg-red-200 ring-2 ring-red-500 shadow-md' : 'bg-red-50'
         }`}>
           <div className="flex items-center justify-center gap-1 mb-1">
             <Button 
               size="sm" 
               variant="ghost" 
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0 hover:bg-red-200"
               onClick={() => onScoreChange('rouge', Math.max(0, scoreRouge - 1))}
               disabled={disabled}
             >
-              <Minus className="h-3 w-3" />
+              <Minus className="h-4 w-4" />
             </Button>
-            <span className="font-bold text-lg w-8">{scoreRouge}</span>
+            <Input
+              type="number"
+              min="0"
+              max="99"
+              value={scoreRouge}
+              onChange={(e) => onScoreChange('rouge', Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-12 h-8 text-center font-bold text-lg p-0 border-red-300"
+              disabled={disabled}
+            />
             <Button 
               size="sm" 
               variant="ghost" 
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0 hover:bg-red-200"
               onClick={() => onScoreChange('rouge', scoreRouge + 1)}
               disabled={disabled}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
           <label className="flex items-center justify-center gap-1 text-xs cursor-pointer">
@@ -88,31 +96,44 @@ function RoundScoring({
             />
             <span className="text-red-600">Pénalité</span>
           </label>
+          {gagnantRouge && (
+            <div className="text-xs font-bold text-red-600 mt-1">
+              {penaliteBleu ? '⚠ Bleu pénalisé' : '✓ Round'}
+            </div>
+          )}
         </div>
         
         {/* Bleu */}
         <div className={`text-center p-2 rounded-lg transition-all ${
-          gagnantBleu ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-blue-50'
+          gagnantBleu ? 'bg-blue-200 ring-2 ring-blue-500 shadow-md' : 'bg-blue-50'
         }`}>
           <div className="flex items-center justify-center gap-1 mb-1">
             <Button 
               size="sm" 
               variant="ghost" 
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0 hover:bg-blue-200"
               onClick={() => onScoreChange('bleu', Math.max(0, scoreBleu - 1))}
               disabled={disabled}
             >
-              <Minus className="h-3 w-3" />
+              <Minus className="h-4 w-4" />
             </Button>
-            <span className="font-bold text-lg w-8">{scoreBleu}</span>
+            <Input
+              type="number"
+              min="0"
+              max="99"
+              value={scoreBleu}
+              onChange={(e) => onScoreChange('bleu', Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-12 h-8 text-center font-bold text-lg p-0 border-blue-300"
+              disabled={disabled}
+            />
             <Button 
               size="sm" 
               variant="ghost" 
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0 hover:bg-blue-200"
               onClick={() => onScoreChange('bleu', scoreBleu + 1)}
               disabled={disabled}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
           <label className="flex items-center justify-center gap-1 text-xs cursor-pointer">
@@ -124,17 +145,13 @@ function RoundScoring({
             />
             <span className="text-blue-600">Pénalité</span>
           </label>
+          {gagnantBleu && (
+            <div className="text-xs font-bold text-blue-600 mt-1">
+              {penaliteRouge ? '⚠ Rouge pénalisé' : '✓ Round'}
+            </div>
+          )}
         </div>
       </div>
-      {/* Indicateur du gagnant du round */}
-      {(gagnantRouge || gagnantBleu) && (
-        <div className={`text-center text-xs font-bold mt-1 ${
-          gagnantRouge ? 'text-red-600' : 'text-blue-600'
-        }`}>
-          {penaliteRouge ? '⚠ Rouge pénalisé' : penaliteBleu ? '⚠ Bleu pénalisé' : 
-           gagnantRouge ? '← Round Rouge' : '→ Round Bleu'}
-        </div>
-      )}
     </div>
   );
 }
@@ -423,16 +440,27 @@ function AireCard({ aire, data, onLancer, onResultat, onRefresh }) {
             <p className="text-xs font-medium text-slate-500 mb-2">
               Combats suivants ({data.combats_a_venir.length - 1})
             </p>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {data.combats_a_venir.slice(1, 4).map((combat, i) => (
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {data.combats_a_venir.slice(1, 5).map((combat, i) => (
                 <div 
                   key={combat.combat_id}
-                  className="flex items-center gap-2 text-xs bg-slate-50 rounded p-2"
+                  className="bg-slate-50 rounded-lg p-2 text-xs"
                 >
-                  <Badge variant="outline" className="text-xs flex-shrink-0">{combat.tour}</Badge>
-                  <span className="text-red-600 truncate">{combat.rouge?.prenom} {combat.rouge?.nom}</span>
-                  <span className="text-slate-400 flex-shrink-0">vs</span>
-                  <span className="text-blue-600 truncate">{combat.bleu?.prenom} {combat.bleu?.nom}</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs flex-shrink-0">{combat.tour}</Badge>
+                    <Badge className="bg-slate-600 text-white text-xs flex-shrink-0">
+                      {combat.categorie?.nom || "Catégorie"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-600 font-medium truncate flex-1">
+                      {combat.rouge?.prenom} {combat.rouge?.nom}
+                    </span>
+                    <span className="text-slate-400 flex-shrink-0">vs</span>
+                    <span className="text-blue-600 font-medium truncate flex-1 text-right">
+                      {combat.bleu?.prenom} {combat.bleu?.nom}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
