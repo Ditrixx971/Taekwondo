@@ -113,6 +113,13 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Bouton d'accès depuis la page Gestion Combats
   - Navigation vers la vue arbre standard
 
+### Phase 10 (21 Mar 2026) - Tri des compétiteurs ✅
+- **Tri interactif sur la page Inscriptions**:
+  - Colonnes triables: Nom, Club, Sexe, Poids déclaré, Poids officiel, Catégorie
+  - Indicateurs visuels (↑/↓) sur la colonne active
+  - Tri ascendant/descendant en cliquant sur l'en-tête
+  - Compatible avec la recherche et les filtres existants
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs

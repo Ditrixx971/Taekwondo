@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-import { Plus, Pencil, Trash2, Search, Users, AlertTriangle, ArrowUpCircle, Download, Upload, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Users, AlertTriangle, ArrowUpCircle, Download, Upload, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -82,6 +82,9 @@ export default function CompetiteursPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const fileInputRef = useRef(null);
+  
+  // État pour le tri
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   useEffect(() => {
     if (competition) {
@@ -230,6 +233,79 @@ export default function CompetiteursPage() {
     const matchCategorie = filterCategorie === "all" || comp.categorie_id === filterCategorie;
     return matchSearch && matchCategorie;
   });
+
+  // Fonction de tri
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  // Tri des compétiteurs filtrés
+  const sortedCompetiteurs = [...filteredCompetiteurs].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    
+    let aValue, bValue;
+    
+    switch (sortConfig.key) {
+      case 'nom':
+        aValue = `${a.nom} ${a.prenom}`.toLowerCase();
+        bValue = `${b.nom} ${b.prenom}`.toLowerCase();
+        break;
+      case 'club':
+        aValue = a.club.toLowerCase();
+        bValue = b.club.toLowerCase();
+        break;
+      case 'sexe':
+        aValue = a.sexe;
+        bValue = b.sexe;
+        break;
+      case 'categorie':
+        aValue = getCategorieNom(a.categorie_id).toLowerCase();
+        bValue = getCategorieNom(b.categorie_id).toLowerCase();
+        break;
+      case 'poids_declare':
+        aValue = a.poids_declare || 0;
+        bValue = b.poids_declare || 0;
+        break;
+      case 'poids_officiel':
+        aValue = a.poids_officiel || 0;
+        bValue = b.poids_officiel || 0;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Composant pour l'en-tête triable
+  const SortableHeader = ({ column, label }) => {
+    const isActive = sortConfig.key === column;
+    return (
+      <TableHead 
+        className="cursor-pointer hover:bg-slate-100 select-none transition-colors"
+        onClick={() => handleSort(column)}
+        data-testid={`sort-${column}`}
+      >
+        <div className="flex items-center gap-1">
+          {label}
+          {isActive ? (
+            sortConfig.direction === 'asc' ? (
+              <ArrowUp className="h-4 w-4 text-indigo-600" />
+            ) : (
+              <ArrowDown className="h-4 w-4 text-indigo-600" />
+            )
+          ) : (
+            <ArrowUpDown className="h-4 w-4 text-slate-400" />
+          )}
+        </div>
+      </TableHead>
+    );
+  };
 
   // ============ IMPORT/EXPORT EXCEL ============
   
@@ -677,7 +753,7 @@ export default function CompetiteursPage() {
         >
           <Card className="border-slate-200">
             <CardContent className="p-0">
-              {filteredCompetiteurs.length === 0 ? (
+              {sortedCompetiteurs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-500">
                   <Users className="h-12 w-12 mb-4 text-slate-300" />
                   <p className="text-lg font-medium">Aucun compétiteur trouvé</p>
@@ -688,18 +764,18 @@ export default function CompetiteursPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="table-header">
-                        <TableHead>Nom</TableHead>
-                        <TableHead>Club</TableHead>
-                        <TableHead>Sexe</TableHead>
-                        <TableHead>Poids déclaré</TableHead>
-                        <TableHead>Poids officiel</TableHead>
-                        <TableHead>Catégorie</TableHead>
+                        <SortableHeader column="nom" label="Nom" />
+                        <SortableHeader column="club" label="Club" />
+                        <SortableHeader column="sexe" label="Sexe" />
+                        <SortableHeader column="poids_declare" label="Poids déclaré" />
+                        <SortableHeader column="poids_officiel" label="Poids officiel" />
+                        <SortableHeader column="categorie" label="Catégorie" />
                         <TableHead>Statut</TableHead>
                         {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredCompetiteurs.map((comp) => (
+                      {sortedCompetiteurs.map((comp) => (
                         <TableRow key={comp.competiteur_id} className="hover:bg-slate-50/50">
                           <TableCell className="font-medium">
                             {comp.prenom} {comp.nom}
