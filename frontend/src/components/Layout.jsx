@@ -39,7 +39,7 @@ const navItems = [
   { path: "/categories", label: "Catégories", icon: FolderKanban },
   { path: "/aires-combat", label: "Aires de combat", icon: Grid3X3 },
   { path: "/gestion-combats", label: "Gestion combats", icon: Swords },
-  { path: "/combats-manuel", label: "Éditeur manuel", icon: Edit3 },
+  { path: "/combats-manuel", label: "Éditeur manuel", icon: Edit3, masterOnly: true },
   { path: "/arbre-combat", label: "Arbre des combats", icon: TreeDeciduous },
   { path: "/ordre-combats", label: "Ordre des combats", icon: List },
   { path: "/arbitrage-multi", label: "Arbitrage multi-aires", icon: Columns },
@@ -53,7 +53,7 @@ const adminItems = [
 ];
 
 export const Layout = ({ children }) => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isMaster } = useAuth();
   const { competition, clearCompetition } = useCompetition();
   const location = useLocation();
   const navigate = useNavigate();
@@ -143,7 +143,9 @@ export const Layout = ({ children }) => {
 
           {/* Nav */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+            {navItems
+              .filter(item => !item.masterOnly || isMaster)
+              .map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
@@ -160,6 +162,9 @@ export const Layout = ({ children }) => {
                 >
                   <Icon size={18} />
                   {item.label}
+                  {item.masterOnly && (
+                    <Badge className="bg-purple-500 text-[10px] ml-auto">MASTER</Badge>
+                  )}
                 </Link>
               );
             })}

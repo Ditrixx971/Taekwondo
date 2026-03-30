@@ -33,7 +33,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function GestionCombatsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isMaster } = useAuth();
   const { competition } = useCompetition();
   const navigate = useNavigate();
   
@@ -357,14 +357,16 @@ export default function GestionCombatsPage() {
                     </Button>
                   )}
                   
-                  <Button 
-                    variant="outline"
-                    onClick={() => navigate("/combats-manuel")}
-                    data-testid="editeur-manuel-btn"
-                  >
-                    <Edit3 className="h-4 w-4 mr-2" />
-                    Éditeur manuel
-                  </Button>
+                  {isMaster && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => navigate("/combats-manuel")}
+                      data-testid="editeur-manuel-btn"
+                    >
+                      <Edit3 className="h-4 w-4 mr-2" />
+                      Éditeur manuel
+                    </Button>
+                  )}
                 </div>
                 
                 {aires.length === 0 && combats.length > 0 && (

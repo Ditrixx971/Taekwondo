@@ -6,15 +6,20 @@ import { Layout } from "../components/Layout";
 import { useAuth, useCompetition } from "../App";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../components/ui/dialog";
 import { 
   Printer, 
   Download, 
   ChevronLeft,
   Trophy,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  Plus,
+  RefreshCw
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -106,7 +111,7 @@ const MatchBox = ({ combat, categorie }) => {
 };
 
 export default function ArbreCombatPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isMaster } = useAuth();
   const { competition } = useCompetition();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -115,7 +120,18 @@ export default function ArbreCombatPage() {
   const [selectedCategorie, setSelectedCategorie] = useState(searchParams.get("categorie") || "");
   const [arbreData, setArbreData] = useState(null);
   const [competiteurs, setCompetiteurs] = useState({});
+  const [allCompetiteurs, setAllCompetiteurs] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Dialogue pour ajouter un combat
+  const [addCombatDialogOpen, setAddCombatDialogOpen] = useState(false);
+  const [newCombat, setNewCombat] = useState({
+    tour: "manuel",
+    nom_personnalise: "",
+    rouge_id: "",
+    bleu_id: ""
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (competition) {
@@ -168,10 +184,37 @@ export default function ArbreCombatPage() {
       });
       
       setCompetiteurs(compDict);
+      setAllCompetiteurs(competiteursRes.data.filter(c => c.categorie_id === selectedCategorie));
       setArbreData(arbreRes.data);
     } catch (error) {
       console.error(error);
       toast.error("Erreur lors du chargement de l'arbre");
+    }
+  };
+
+  // Créer un nouveau combat (MASTER uniquement)
+  const handleCreateCombat = async () => {
+    if (!isMaster) return;
+    setCreating(true);
+    try {
+      await axios.post(`${API}/combats-manuels`, {
+        competition_id: competition.competition_id,
+        categorie_id: selectedCategorie,
+        tour: newCombat.tour,
+        position: 1,
+        nom_personnalise: newCombat.nom_personnalise || null,
+        rouge_id: newCombat.rouge_id || null,
+        bleu_id: newCombat.bleu_id || null
+      }, { withCredentials: true });
+      
+      toast.success("Combat ajouté");
+      setAddCombatDialogOpen(false);
+      setNewCombat({ tour: "manuel", nom_personnalise: "", rouge_id: "", bleu_id: "" });
+      fetchArbre();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de la création");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -232,6 +275,12 @@ export default function ArbreCombatPage() {
           </div>
           
           <div className="flex gap-2">
+            {isMaster && (
+              <Button onClick={() => setAddCombatDialogOpen(true)} data-testid="add-combat-btn">
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter combat
+              </Button>
+            )}
             <Button variant="outline" onClick={handlePrint} data-testid="print-arbre-btn">
               <Printer className="mr-2 h-4 w-4" />
               Imprimer
@@ -456,6 +505,102 @@ export default function ArbreCombatPage() {
           }
         }
       `}</style>
+
+      {/* Dialogue ajout de combat (MASTER uniquement) */}
+      <Dialog open={addCombatDialogOpen} onOpenChange={setAddCombatDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Ajouter un combat
+            </DialogTitle>
+            <DialogDescription>
+              Ajouter un nouveau combat dans la catégorie {categorieNom}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Nom personnalisé (optionnel)</Label>
+              <Input
+                value={newCombat.nom_personnalise}
+                onChange={(e) => setNewCombat({ ...newCombat, nom_personnalise: e.target.value })}
+                placeholder="Ex: Combat de barrage"
+                data-testid="add-combat-nom"
+              />
+            </div>
+
+            <div>
+              <Label>Type de tour</Label>
+              <Select 
+                value={newCombat.tour} 
+                onValueChange={(v) => setNewCombat({ ...newCombat, tour: v })}
+              >
+                <SelectTrigger data-testid="add-combat-tour">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manuel">Manuel</SelectItem>
+                  <SelectItem value="quart">Quart de finale</SelectItem>
+                  <SelectItem value="demi">Demi-finale</SelectItem>
+                  <SelectItem value="finale">Finale</SelectItem>
+                  <SelectItem value="bronze">Petite finale</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-blue-600">Combattant Bleu (optionnel)</Label>
+              <Select 
+                value={newCombat.bleu_id || "none"} 
+                onValueChange={(v) => setNewCombat({ ...newCombat, bleu_id: v === "none" ? "" : v })}
+              >
+                <SelectTrigger data-testid="add-combat-bleu">
+                  <SelectValue placeholder="Sélectionner..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Non assigné --</SelectItem>
+                  {allCompetiteurs.map(c => (
+                    <SelectItem key={c.competiteur_id} value={c.competiteur_id}>
+                      {c.prenom} {c.nom} ({c.club})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-red-600">Combattant Rouge (optionnel)</Label>
+              <Select 
+                value={newCombat.rouge_id || "none"} 
+                onValueChange={(v) => setNewCombat({ ...newCombat, rouge_id: v === "none" ? "" : v })}
+              >
+                <SelectTrigger data-testid="add-combat-rouge">
+                  <SelectValue placeholder="Sélectionner..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Non assigné --</SelectItem>
+                  {allCompetiteurs.map(c => (
+                    <SelectItem key={c.competiteur_id} value={c.competiteur_id}>
+                      {c.prenom} {c.nom} ({c.club})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddCombatDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleCreateCombat} disabled={creating} data-testid="confirm-add-combat">
+              {creating ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              Ajouter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

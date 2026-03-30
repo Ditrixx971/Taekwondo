@@ -166,7 +166,7 @@ const ProtectedRoute = ({ children, requireCompetition = true }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, isAdmin: user?.role === "admin" || user?.role === "master" }}>
+    <AuthContext.Provider value={{ user, setUser, isAdmin: user?.role === "admin" || user?.role === "master", isMaster: user?.role === "master" }}>
       <CompetitionContext.Provider value={{ competition, selectCompetition, clearCompetition }}>
         {children}
       </CompetitionContext.Provider>

@@ -566,7 +566,7 @@ const ConnectDialog = ({
 
 // ============ PAGE PRINCIPALE ============
 export default function CombatsManuelPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isMaster } = useAuth();
   const { competition } = useCompetition();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -584,11 +584,19 @@ export default function CombatsManuelPage() {
   
   const [distributing, setDistributing] = useState(false);
 
+  // Vérifier accès MASTER
   useEffect(() => {
-    if (competition) {
+    if (!isMaster) {
+      toast.error("Accès réservé aux comptes MASTER");
+      navigate("/gestion-combats");
+    }
+  }, [isMaster, navigate]);
+
+  useEffect(() => {
+    if (competition && isMaster) {
       fetchCategories();
     }
-  }, [competition]);
+  }, [competition, isMaster]);
 
   useEffect(() => {
     if (selectedCategorie) {
