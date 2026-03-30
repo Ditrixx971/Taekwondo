@@ -136,6 +136,34 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - **Statistiques étendues**: 5 compteurs (Total, Terminés, En cours, À déterminer, Finales)
 - **Vues Colonnes/Unifié**: Basculement entre vue par aire et vue chronologique
 
+### Phase 12 (30 Mar 2026) - Refonte Génération Arbre (Règles World Taekwondo) ✅
+- **Bracket par puissance de 2**: Génération automatique du bracket complet selon la taille
+  - 2 participants  → 1 combat (Finale directe)
+  - 3-4 participants → 3 combats (2 Demis + Finale)
+  - 5-8 participants → 7 combats (Quarts + Demis + Finale)
+  - 9-16 participants → 15 combats (8èmes + Quarts + Demis + Finale)
+  - 17-32 participants → 31 combats (16èmes + 8èmes + Quarts + Demis + Finale)
+- **PAS de combat bronze** (règle World Taekwondo):
+  - Les deux perdants des demi-finales reçoivent le bronze ex-aequo
+  - Suppression de la génération et propagation vers combat bronze
+- **Gestion des BYEs**:
+  - Attribution automatique aux premiers inscrits
+  - API GET/PUT `/api/categories/{id}/byes` pour consulter/modifier
+  - Interface modale pour le MASTER de modifier les BYEs
+  - Verrouillage des BYEs une fois le premier combat commencé
+  - Répartition stratégique des BYEs dans le bracket
+- **Podium automatique**:
+  - 🥇 Or: Vainqueur de la finale
+  - 🥈 Argent: Perdant de la finale
+  - 🥉 Bronze: Perdant demi-finale 1 (ex-aequo)
+  - 🥉 Bronze: Perdant demi-finale 2 (ex-aequo)
+- **Nouveaux tours supportés**: seizieme, huitieme, quart, demi, finale
+- **Page ArbreCombatPage refactorisée**:
+  - Affichage dynamique de tous les tours
+  - Section Podium avec affichage visuel
+  - Bouton "Modifier BYEs" pour le MASTER
+  - Information bracket_size et num_byes dans l'en-tête
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs
