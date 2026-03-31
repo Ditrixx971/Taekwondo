@@ -80,9 +80,9 @@ android-sdk/
 frontend/node_modules/.cache/default-development/6.pack
 frontend/node_modules/.cache/default-development/9.pack
 -e 
-# Environment files
-*.env
-*.env.*
+# Environment files - KEEP .env files for deployment
+# *.env  # REMOVED - Required for Emergent deployment
+# *.env.*  # REMOVED - Required for Emergent deployment
 frontend/node_modules/.cache/default-development/11.pack
 frontend/node_modules/.cache/default-development/0.pack
 frontend/node_modules/.cache/default-development/2.pack

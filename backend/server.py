@@ -1181,26 +1181,39 @@ async def get_combats_ordre(aire_id: str, user: User = Depends(get_current_user)
         {"_id": 0}
     ).sort([("est_finale", 1), ("ordre", 1)]).to_list(200)
     
-    # Enrichir avec les infos des compétiteurs
+    # ============ OPTIMISATION: Batch fetch pour éviter N+1 queries ============
+    # Collecter tous les IDs uniques
+    competiteur_ids = set()
+    categorie_ids = set()
     for combat in combats:
         if combat.get("rouge_id"):
-            rouge = await db.competiteurs.find_one(
-                {"competiteur_id": combat["rouge_id"]},
-                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
-            )
-            combat["rouge"] = rouge
+            competiteur_ids.add(combat["rouge_id"])
         if combat.get("bleu_id"):
-            bleu = await db.competiteurs.find_one(
-                {"competiteur_id": combat["bleu_id"]},
-                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
-            )
-            combat["bleu"] = bleu
-        # Catégorie
-        categorie = await db.categories.find_one(
-            {"categorie_id": combat["categorie_id"]},
-            {"_id": 0, "nom": 1}
-        )
-        combat["categorie"] = categorie
+            competiteur_ids.add(combat["bleu_id"])
+        if combat.get("categorie_id"):
+            categorie_ids.add(combat["categorie_id"])
+    
+    # Fetch en batch
+    competiteurs_list = await db.competiteurs.find(
+        {"competiteur_id": {"$in": list(competiteur_ids)}},
+        {"_id": 0, "competiteur_id": 1, "nom": 1, "prenom": 1, "club": 1}
+    ).to_list(500)
+    competiteurs_map = {c["competiteur_id"]: c for c in competiteurs_list}
+    
+    categories_list = await db.categories.find(
+        {"categorie_id": {"$in": list(categorie_ids)}},
+        {"_id": 0, "categorie_id": 1, "nom": 1}
+    ).to_list(200)
+    categories_map = {c["categorie_id"]: c for c in categories_list}
+    
+    # Enrichir avec les infos (lookup rapide)
+    for combat in combats:
+        if combat.get("rouge_id"):
+            combat["rouge"] = competiteurs_map.get(combat["rouge_id"])
+        if combat.get("bleu_id"):
+            combat["bleu"] = competiteurs_map.get(combat["bleu_id"])
+        if combat.get("categorie_id"):
+            combat["categorie"] = categories_map.get(combat["categorie_id"])
     
     return combats
 
@@ -1332,10 +1345,42 @@ async def combats_a_suivre(
     
     combats = await db.combats.find(query, {"_id": 0}).sort("ordre", 1).to_list(500)
     
-    # Enrichir avec les noms des compétiteurs et catégories
+    # ============ OPTIMISATION: Batch fetch pour éviter N+1 queries ============
+    competiteur_ids = set()
+    categorie_ids = set()
+    tatami_ids = set()
     for combat in combats:
         if combat.get("rouge_id"):
-            rouge = await db.competiteurs.find_one({"competiteur_id": combat["rouge_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            competiteur_ids.add(combat["rouge_id"])
+        if combat.get("bleu_id"):
+            competiteur_ids.add(combat["bleu_id"])
+        if combat.get("categorie_id"):
+            categorie_ids.add(combat["categorie_id"])
+        if combat.get("tatami_id"):
+            tatami_ids.add(combat["tatami_id"])
+    
+    competiteurs_list = await db.competiteurs.find(
+        {"competiteur_id": {"$in": list(competiteur_ids)}},
+        {"_id": 0, "competiteur_id": 1, "nom": 1, "prenom": 1, "club": 1}
+    ).to_list(1000)
+    competiteurs_map = {c["competiteur_id"]: c for c in competiteurs_list}
+    
+    categories_list = await db.categories.find(
+        {"categorie_id": {"$in": list(categorie_ids)}},
+        {"_id": 0, "categorie_id": 1, "nom": 1}
+    ).to_list(200)
+    categories_map = {c["categorie_id"]: c for c in categories_list}
+    
+    tatamis_list = await db.tatamis.find(
+        {"tatami_id": {"$in": list(tatami_ids)}},
+        {"_id": 0, "tatami_id": 1, "nom": 1, "numero": 1}
+    ).to_list(50)
+    tatamis_map = {t["tatami_id"]: t for t in tatamis_list}
+    
+    # Enrichir avec les noms (lookup rapide)
+    for combat in combats:
+        if combat.get("rouge_id"):
+            rouge = competiteurs_map.get(combat["rouge_id"])
             combat["rouge_nom"] = f"{rouge['prenom']} {rouge['nom']}" if rouge else "Inconnu"
             combat["rouge_club"] = rouge.get("club", "") if rouge else ""
         else:
@@ -1343,18 +1388,18 @@ async def combats_a_suivre(
             combat["rouge_club"] = ""
             
         if combat.get("bleu_id"):
-            bleu = await db.competiteurs.find_one({"competiteur_id": combat["bleu_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            bleu = competiteurs_map.get(combat["bleu_id"])
             combat["bleu_nom"] = f"{bleu['prenom']} {bleu['nom']}" if bleu else "Inconnu"
             combat["bleu_club"] = bleu.get("club", "") if bleu else ""
         else:
             combat["bleu_nom"] = "À déterminer"
             combat["bleu_club"] = ""
         
-        cat = await db.categories.find_one({"categorie_id": combat["categorie_id"]}, {"_id": 0, "nom": 1})
+        cat = categories_map.get(combat.get("categorie_id"))
         combat["categorie_nom"] = cat["nom"] if cat else "Inconnue"
         
         if combat.get("tatami_id"):
-            tatami = await db.tatamis.find_one({"tatami_id": combat["tatami_id"]}, {"_id": 0, "nom": 1, "numero": 1})
+            tatami = tatamis_map.get(combat["tatami_id"])
             combat["tatami_nom"] = tatami["nom"] if tatami else "Non assigné"
         else:
             combat["tatami_nom"] = "Non assigné"
@@ -1370,27 +1415,42 @@ async def get_arbre_combats(categorie_id: str, user: User = Depends(get_current_
     """
     combats = await db.combats.find({"categorie_id": categorie_id}, {"_id": 0}).to_list(100)
     
-    # Enrichir avec les informations
+    # ============ OPTIMISATION: Batch fetch pour éviter N+1 queries ============
+    competiteur_ids = set()
+    for combat in combats:
+        if combat.get("rouge_id"):
+            competiteur_ids.add(combat["rouge_id"])
+        if combat.get("bleu_id"):
+            competiteur_ids.add(combat["bleu_id"])
+        if combat.get("vainqueur_id"):
+            competiteur_ids.add(combat["vainqueur_id"])
+    
+    competiteurs_list = await db.competiteurs.find(
+        {"competiteur_id": {"$in": list(competiteur_ids)}},
+        {"_id": 0, "competiteur_id": 1, "nom": 1, "prenom": 1, "club": 1}
+    ).to_list(500)
+    competiteurs_map = {c["competiteur_id"]: c for c in competiteurs_list}
+    
     # Structure dynamique pour tous les tours possibles
     arbre = {"seizieme": [], "huitieme": [], "quart": [], "demi": [], "finale": []}
     
     for combat in combats:
-        # Ajouter les noms des compétiteurs
+        # Ajouter les noms des compétiteurs (lookup rapide)
         if combat.get("rouge_id"):
-            rouge = await db.competiteurs.find_one({"competiteur_id": combat["rouge_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            rouge = competiteurs_map.get(combat["rouge_id"])
             combat["rouge"] = {"nom": f"{rouge['prenom']} {rouge['nom']}", "club": rouge.get("club", "")} if rouge else {"nom": "Inconnu", "club": ""}
         else:
             combat["rouge"] = {"nom": "À déterminer", "club": ""}
             
         if combat.get("bleu_id"):
-            bleu = await db.competiteurs.find_one({"competiteur_id": combat["bleu_id"]}, {"_id": 0, "nom": 1, "prenom": 1, "club": 1})
+            bleu = competiteurs_map.get(combat["bleu_id"])
             combat["bleu"] = {"nom": f"{bleu['prenom']} {bleu['nom']}", "club": bleu.get("club", "")} if bleu else {"nom": "Inconnu", "club": ""}
         else:
             combat["bleu"] = {"nom": "À déterminer", "club": ""}
         
         # Ajouter le vainqueur si terminé
         if combat.get("vainqueur_id"):
-            vainqueur = await db.competiteurs.find_one({"competiteur_id": combat["vainqueur_id"]}, {"_id": 0, "nom": 1, "prenom": 1})
+            vainqueur = competiteurs_map.get(combat["vainqueur_id"])
             combat["vainqueur_nom"] = f"{vainqueur['prenom']} {vainqueur['nom']}" if vainqueur else "Inconnu"
         
         # Ajouter au bon tour (ignorer les combats bronze qui n'existent plus)
@@ -3469,34 +3529,51 @@ async def get_combats_prets(competition_id: str, user: User = Depends(get_curren
         {"_id": 0}
     ).sort([("ordre", 1)]).to_list(500)
     
-    # Enrichir avec les infos des compétiteurs et catégories
+    # ============ OPTIMISATION: Batch fetch pour éviter N+1 queries ============
+    competiteur_ids = set()
+    categorie_ids = set()
+    aire_ids = set()
     for combat in combats:
         if combat.get("rouge_id"):
-            rouge = await db.competiteurs.find_one(
-                {"competiteur_id": combat["rouge_id"]},
-                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
-            )
-            combat["rouge"] = rouge
+            competiteur_ids.add(combat["rouge_id"])
+        if combat.get("bleu_id"):
+            competiteur_ids.add(combat["bleu_id"])
+        if combat.get("categorie_id"):
+            categorie_ids.add(combat["categorie_id"])
+        if combat.get("aire_id"):
+            aire_ids.add(combat["aire_id"])
+    
+    competiteurs_list = await db.competiteurs.find(
+        {"competiteur_id": {"$in": list(competiteur_ids)}},
+        {"_id": 0, "competiteur_id": 1, "nom": 1, "prenom": 1, "club": 1}
+    ).to_list(1000)
+    competiteurs_map = {c["competiteur_id"]: c for c in competiteurs_list}
+    
+    categories_list = await db.categories.find(
+        {"categorie_id": {"$in": list(categorie_ids)}},
+        {"_id": 0, "categorie_id": 1, "nom": 1}
+    ).to_list(200)
+    categories_map = {c["categorie_id"]: c for c in categories_list}
+    
+    aires_list = await db.aires_combat.find(
+        {"aire_id": {"$in": list(aire_ids)}},
+        {"_id": 0, "aire_id": 1, "nom": 1, "numero": 1}
+    ).to_list(50)
+    aires_map = {a["aire_id"]: a for a in aires_list}
+    
+    # Enrichir avec les infos (lookup rapide)
+    for combat in combats:
+        if combat.get("rouge_id"):
+            combat["rouge"] = competiteurs_map.get(combat["rouge_id"])
         
         if combat.get("bleu_id"):
-            bleu = await db.competiteurs.find_one(
-                {"competiteur_id": combat["bleu_id"]},
-                {"_id": 0, "nom": 1, "prenom": 1, "club": 1}
-            )
-            combat["bleu"] = bleu
+            combat["bleu"] = competiteurs_map.get(combat["bleu_id"])
         
-        categorie = await db.categories.find_one(
-            {"categorie_id": combat["categorie_id"]},
-            {"_id": 0, "nom": 1}
-        )
+        categorie = categories_map.get(combat.get("categorie_id"))
         combat["categorie_nom"] = categorie["nom"] if categorie else "Inconnue"
         
         if combat.get("aire_id"):
-            aire = await db.aires_combat.find_one(
-                {"aire_id": combat["aire_id"]},
-                {"_id": 0, "nom": 1, "numero": 1}
-            )
-            combat["aire"] = aire
+            combat["aire"] = aires_map.get(combat["aire_id"])
     
     return combats
 
