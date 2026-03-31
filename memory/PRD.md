@@ -196,20 +196,27 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - 5-8 combattants → bracket de 8 (quarts + demis + finale)
   - 9-16 combattants → bracket de 16 (8èmes + quarts + demis + finale)
   - 17-32 combattants → bracket de 32 (16èmes + 8èmes + quarts + demis + finale)
+- **Tests passés**: Backend 7/7 (100%) + Frontend 10/10 (100%)
+
+### Phase 15 (31 Mar 2026) - Logique Anti-BYE Visuel ✅
+- **Nouvelle règle fondamentale**: Un combat est créé UNIQUEMENT si les 2 combattants sont connus (A != null ET B != null)
+- **Comportement des BYEs**:
+  - Les BYEs ne créent PAS de combat visible
+  - Les gagnants par BYE sont propagés automatiquement et silencieusement
+  - Les gagnants BYE sont stockés dans `bracket_structure.known_rouge/known_bleu` pour création dynamique
+- **Création dynamique des combats**:
+  - Les combats futurs (quarts, demis, finale) sont créés lors de la saisie des résultats
+  - Quand un résultat est saisi, le système vérifie si le combat suivant peut être créé (2 combattants connus)
+  - La fonction `propager_vainqueur` crée les combats dynamiquement
 - **Exemple vérifié pour 13 combattants**:
   - Bracket size = 16 ✅
   - BYEs = 3 (16-13) ✅
-  - Tours = huitieme, quart, demi, finale (4 tours) ✅
-  - Total combats = 12 (13-1) ✅
-  - Distribution = 5 huitièmes + 4 quarts + 2 demis + 1 finale ✅
-- **Propagation des BYEs**:
-  - Les vainqueurs des BYEs apparaissent directement au tour suivant
-  - Les autres cases restent "À déterminer" jusqu'au résultat
-- **Garanties**:
-  - JAMAIS de tour manquant ou sauté
-  - JAMAIS de bracket intermédiaire
-  - Tous les tours générés dès la création
-- **Tests passés**: Backend 7/7 (100%) + Frontend 10/10 (100%)
+  - Combats créés à la génération = 5 (et non 8 avec des BYEs) ✅
+  - API `/api/combats/arbre` retourne 0 combat avec rouge/bleu = null ✅
+- **Frontend**:
+  - 0 occurrence de "À déterminer" dans l'affichage de l'arbre
+  - Affichage propre sans combats "fantômes"
+- **Tests passés**: Backend 10/10 (100%) + Frontend 8/8 (100%)
 
 ## API Endpoints Clés
 
@@ -263,11 +270,13 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
 - **Backend**: 100% (iteration_7.json - 26/26 tests Combat Manuel Backend)
 - **Frontend**: 100% (iteration_8.json - 18/18 tests Combat Manuel Frontend)
 - **OrdreCombatsPage**: 100% (iteration_9.json - 13/13 tests refonte UI + PDF)
+- **Anti-BYE Logic**: 100% (iteration_14.json - 10/10 backend + 8/8 frontend)
 - **Test files**: 
   - `/app/backend/tests/test_aires_combat_arbitre.py`
   - `/app/backend/tests/test_phase1_features.py`
   - `/app/backend/tests/test_phase2_features.py`
   - `/app/backend/tests/test_combats_manuels.py`
+  - `/app/backend/tests/test_anti_bye_logic.py`
 
 ## Backlog
 
