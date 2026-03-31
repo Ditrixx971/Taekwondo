@@ -197,33 +197,25 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - 9-16 combattants → bracket de 16 (8èmes + quarts + demis + finale)
   - 17-32 combattants → bracket de 32 (16èmes + 8èmes + quarts + demis + finale)
 
-### Phase 15 (31 Mar 2026) - Arbre Complet Visible dès le Départ ✅
-- **Règle fondamentale**: L'arbre COMPLET est créé et visible dès la génération
-- **Affichage immédiat de tous les tours**:
-  - Tous les combats de tous les tours sont créés à la génération
-  - Les cases vides affichent "À déterminer"
-  - L'arbre ne se construit PAS au fur et à mesure — il est visible en entier dès le départ
-- **Gestion des BYEs**:
-  - Les BYEs sont affichés (combattant vs case vide avec has_bye=True)
-  - Les combats BYE sont marqués termine=True immédiatement
-  - Les gagnants BYE sont propagés automatiquement vers le tour suivant
-  - Exemple: 13 combattants → 3 BYEs → 3 qualifiés directs en quarts
-- **Structure stricte**:
-  - Chaque tour = exactement la moitié du tour précédent
-  - 16èmes=16, 8èmes=8, Quarts=4, Demis=2, Finale=1
-- **Propagation automatique des vainqueurs**:
-  - Dès qu'un résultat est saisi, le vainqueur apparaît dans le tour suivant
-  - La mise à jour est automatique via `propager_vainqueur`
-- **Élimination directe**:
-  - Perdant définitivement éliminé (pas de repêchage)
-  - Pas de combat pour la 3ème place (2 bronzes ex-aequo)
+### Phase 15 (31 Mar 2026) - Arbre Complet Sans BYE Visible ✅
+- **Règle fondamentale**: Les BYEs NE SONT PAS des combats
+- **Comportement des BYEs**:
+  - Un BYE = combattant qui passe DIRECTEMENT au tour suivant SANS adversaire
+  - PAS de combat créé pour un BYE
+  - Le combattant apparaît directement dans le tour suivant
+- **Affichage de l'arbre**:
+  - Tous les tours visibles dès le départ
+  - "À déterminer" pour les combattants inconnus
+  - Seuls les vrais combats (2 combattants) sont affichés
 - **Exemple vérifié pour 13 combattants**:
   - Bracket size = 16 ✅
-  - BYEs = 3 ✅
-  - Total combats = 15 (8 huitièmes + 4 quarts + 2 demis + 1 finale) ✅
-  - 3 BYEs terminés automatiquement ✅
+  - BYEs = 3 (directs, non affichés) ✅
+  - Total combats = 12 (et non 15) = n-1 ✅
+  - Huitièmes = 5 combats (positions 2, 3, 5, 7, 8) ✅
   - Qualifiés BYE propagés vers les quarts ✅
-- **Tests passés**: Backend 16/16 (100%) + Frontend 100%
+- **Structure stricte**:
+  - Chaque tour = exactement la moitié du tour précédent
+  - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
 ## API Endpoints Clés
 

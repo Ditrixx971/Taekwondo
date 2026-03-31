@@ -1522,7 +1522,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     RÈGLES CLÉS:
     1. L'arbre COMPLET est créé dès le départ (tous les tours visibles)
     2. Les cases vides affichent "À déterminer" (rouge_id=null ou bleu_id=null)
-    3. Les BYEs sont affichés (combattant vs BYE = le combattant est affiché avec has_bye=True)
+    3. Les BYEs NE SONT PAS des combats - le combattant passe directement au tour suivant
     4. Structure stricte en puissance de 2
     5. Chaque tour = exactement la moitié du tour précédent
     6. PAS de combat bronze (règle World Taekwondo) - 2 bronze ex-aequo
@@ -1619,11 +1619,11 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 slots[i] = comp_ids[comp_idx]
                 comp_idx += 1
     
-    # ============ ÉTAPE 3: CRÉER TOUS LES COMBATS DE TOUS LES TOURS ============
+    # ============ ÉTAPE 3: CRÉER LES COMBATS (SANS LES BYES) ============
     combats_created = []
     combats_by_tour = {tour: [] for tour in tour_names}
     
-    # Premier tour : créer tous les combats (y compris les BYEs)
+    # Premier tour : créer UNIQUEMENT les vrais combats (pas les BYEs)
     first_tour = tour_names[0]
     num_matches_first = bracket_size // 2
     next_round_slots = []  # Qualifiés pour le tour suivant
@@ -1633,31 +1633,16 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         slot_b = slots[i * 2 + 1]  # Bleu (ou None si BYE)
         position = i + 1
         
-        # Déterminer le type de combat
-        has_bye = (slot_a is None) != (slot_b is None)  # Exactement un des deux est BYE
-        is_real_combat = slot_a is not None and slot_b is not None
-        
-        # Si BYE, le vainqueur est automatiquement le combattant présent
-        if has_bye:
-            # Combat BYE : marquer comme terminé immédiatement
+        # Cas 1: BYE - un seul combattant → PAS DE COMBAT, passe directement
+        if (slot_a is None) != (slot_b is None):
+            # Le combattant présent passe directement au tour suivant
             winner_id = slot_a if slot_a is not None else slot_b
-            combat = Combat(
-                competition_id=competition_id,
-                categorie_id=categorie_id,
-                tatami_id=tatami_id,
-                tour=first_tour,
-                position=position,
-                rouge_id=slot_a,  # None si BYE
-                bleu_id=slot_b,   # None si BYE
-                has_bye=True,
-                pret=False,  # Pas prêt car pas de vrai combat
-                vainqueur_id=winner_id,
-                termine=True,
-                statut="termine"
-            )
-            next_round_slots.append(winner_id)  # Qualifié automatiquement
-        else:
-            # Combat réel (2 combattants) ou placeholder (0 combattant, ne devrait pas arriver)
+            next_round_slots.append(winner_id)
+            # PAS de création de combat pour un BYE
+            continue
+        
+        # Cas 2: Combat réel (2 combattants)
+        if slot_a is not None and slot_b is not None:
             combat = Combat(
                 competition_id=competition_id,
                 categorie_id=categorie_id,
@@ -1667,18 +1652,20 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 rouge_id=slot_a,
                 bleu_id=slot_b,
                 has_bye=False,
-                pret=(slot_a is not None and slot_b is not None)
+                pret=True
             )
+            combat_dict = combat.model_dump()
+            combat_dict["created_at"] = combat_dict["created_at"].isoformat()
+            await db.combats.insert_one(combat_dict)
+            combat_dict.pop("_id", None)
+            combats_created.append(combat_dict)
+            combats_by_tour[first_tour].append(combat_dict)
             next_round_slots.append(None)  # Qualifié inconnu, sera déterminé par résultat
-        
-        combat_dict = combat.model_dump()
-        combat_dict["created_at"] = combat_dict["created_at"].isoformat()
-        await db.combats.insert_one(combat_dict)
-        combat_dict.pop("_id", None)
-        combats_created.append(combat_dict)
-        combats_by_tour[first_tour].append(combat_dict)
+        else:
+            # Cas 3: Deux BYEs (ne devrait pas arriver avec distribution correcte)
+            next_round_slots.append(None)
     
-    # Tours suivants : créer tous les combats avec les qualifiés connus (BYEs) ou "À déterminer"
+    # Tours suivants : créer tous les combats avec les qualifiés connus ou "À déterminer"
     current_round_qualifieds = next_round_slots
     
     for tour_idx in range(1, len(tour_names)):
@@ -1691,7 +1678,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             q2 = current_round_qualifieds[i * 2 + 1]  # Qualifié bleu (ou None si inconnu)
             position = i + 1
             
-            # Créer le combat (même si les combattants ne sont pas encore connus)
+            # Créer le combat (même si les combattants ne sont pas encore connus = "À déterminer")
             combat = Combat(
                 competition_id=competition_id,
                 categorie_id=categorie_id,
@@ -1754,12 +1741,10 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     
     # ============ STATISTIQUES ============
     total_combats = len(combats_created)
-    combats_byes = len([c for c in combats_created if c.get("has_bye")])
-    combats_reels = total_combats - combats_byes
     combats_prets = len([c for c in combats_created if c.get("pret") and not c.get("termine")])
     
     return {
-        "message": f"Arbre complet généré: {total_combats} combats ({combats_reels} réels, {combats_byes} BYEs) pour {n} combattants",
+        "message": f"Arbre généré: {total_combats} combats réels pour {n} combattants ({bye_count} BYEs directs)",
         "combats": combats_created,
         "nb_combattants": n,
         "bracket_size": bracket_size,
