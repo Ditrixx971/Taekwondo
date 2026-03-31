@@ -1517,15 +1517,16 @@ async def get_combat(combat_id: str, user: User = Depends(get_current_user)):
 @api_router.post("/combats/generer/{categorie_id}")
 async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, user: User = Depends(require_admin)):
     """
-    Génère l'arbre des combats pour une catégorie.
+    Génère l'arbre COMPLET des combats pour une catégorie.
     
-    RÈGLES CLÉS (ANTI-BYE VISUEL):
-    - Un combat est créé UNIQUEMENT si les 2 combattants sont connus (A != null AND B != null)
-    - Les BYEs ne créent PAS de combat - ils propagent silencieusement
-    - Les combats futurs sont créés dynamiquement lors de la propagation des résultats
-    - Aucun "À déterminer" n'est créé à la génération initiale
-    
-    PAS de combat bronze (règle World Taekwondo) - 2 bronze ex-aequo.
+    RÈGLES CLÉS:
+    1. L'arbre COMPLET est créé dès le départ (tous les tours visibles)
+    2. Les cases vides affichent "À déterminer" (rouge_id=null ou bleu_id=null)
+    3. Les BYEs sont affichés (combattant vs BYE = le combattant est affiché avec has_bye=True)
+    4. Structure stricte en puissance de 2
+    5. Chaque tour = exactement la moitié du tour précédent
+    6. PAS de combat bronze (règle World Taekwondo) - 2 bronze ex-aequo
+    7. Élimination directe : perdant définitivement éliminé
     """
     # Récupérer la catégorie
     categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
@@ -1567,7 +1568,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     import math
     num_rounds = int(math.log2(bracket_size))
     
-    # Noms des tours
+    # Noms des tours selon la taille du bracket
     def get_tour_names(bracket_size):
         tours = []
         if bracket_size >= 32:
@@ -1583,26 +1584,26 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     
     tour_names = get_tour_names(bracket_size)
     
-    # ============ ÉTAPE 2: DISTRIBUTION INTELLIGENTE DES BYES ============
-    # Mélanger les compétiteurs pour tirage au sort
+    # ============ ÉTAPE 2: MÉLANGE ET DISTRIBUTION DES BYES ============
+    # Mélanger les compétiteurs pour tirage au sort aléatoire
     random.shuffle(competiteurs)
-    
-    # Créer les slots avec distribution uniforme des BYEs
-    # RÈGLE: Ne jamais mettre 2 BYEs côte à côte dans le même match
-    slots = []
     comp_ids = [c["competiteur_id"] for c in competiteurs]
     
+    # Créer les slots du premier tour (bracket_size slots)
+    # Distribution des BYEs : espacés uniformément pour éviter 2 BYEs côte à côte
+    slots = [None] * bracket_size
+    
     if bye_count == 0:
-        # Pas de BYE, tous les combattants
-        slots = comp_ids[:]
+        # Pas de BYE, remplir tous les slots
+        for i, comp_id in enumerate(comp_ids):
+            slots[i] = comp_id
     else:
-        # Distribution uniforme des BYEs
-        # Positionner les BYEs en positions impaires (slot 1, 3, 5...) à intervalles réguliers
+        # Calculer les positions des BYEs (en positions impaires, espacées)
+        bye_positions = set()
         interval = bracket_size // bye_count if bye_count > 0 else bracket_size
         
-        bye_positions = set()
         for i in range(bye_count):
-            pos = (i * interval) + 1
+            pos = (i * interval) + 1  # Position impaire (slot B du match)
             if pos >= bracket_size:
                 pos = pos % bracket_size
             if pos % 2 == 0:
@@ -1611,37 +1612,52 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 pos = (pos + 2) % bracket_size
             bye_positions.add(pos)
         
-        # Remplir les slots
+        # Remplir les slots avec les compétiteurs (les positions BYE restent None)
         comp_idx = 0
         for i in range(bracket_size):
-            if i in bye_positions:
-                slots.append(None)  # BYE
-            else:
-                if comp_idx < len(comp_ids):
-                    slots.append(comp_ids[comp_idx])
-                    comp_idx += 1
-                else:
-                    slots.append(None)
+            if i not in bye_positions and comp_idx < len(comp_ids):
+                slots[i] = comp_ids[comp_idx]
+                comp_idx += 1
     
-    # ============ ÉTAPE 3: CONSTRUIRE LA STRUCTURE DU BRACKET ============
-    # Structure pour suivre les qualifiés à chaque tour
-    # Chaque entrée: {"type": "combat|bye|pending", "competiteur_id": str|None, "combat_id": str|None}
-    bracket_structure = {tour: [] for tour in tour_names}
-    
+    # ============ ÉTAPE 3: CRÉER TOUS LES COMBATS DE TOUS LES TOURS ============
     combats_created = []
+    combats_by_tour = {tour: [] for tour in tour_names}
     
-    # ============ ÉTAPE 4: PREMIER TOUR - CRÉER UNIQUEMENT LES COMBATS VALIDES ============
+    # Premier tour : créer tous les combats (y compris les BYEs)
     first_tour = tour_names[0]
-    num_matches = bracket_size // 2
-    next_round_qualifieds = []  # Liste des qualifiés pour le tour suivant
+    num_matches_first = bracket_size // 2
+    next_round_slots = []  # Qualifiés pour le tour suivant
     
-    for i in range(num_matches):
-        slot_a = slots[i * 2]      # Combattant 1 (ou None si BYE)
-        slot_b = slots[i * 2 + 1]  # Combattant 2 (ou None si BYE)
+    for i in range(num_matches_first):
+        slot_a = slots[i * 2]      # Rouge (ou None si BYE)
+        slot_b = slots[i * 2 + 1]  # Bleu (ou None si BYE)
         position = i + 1
         
-        # Cas 1: 2 combattants réels → créer le combat
-        if slot_a is not None and slot_b is not None:
+        # Déterminer le type de combat
+        has_bye = (slot_a is None) != (slot_b is None)  # Exactement un des deux est BYE
+        is_real_combat = slot_a is not None and slot_b is not None
+        
+        # Si BYE, le vainqueur est automatiquement le combattant présent
+        if has_bye:
+            # Combat BYE : marquer comme terminé immédiatement
+            winner_id = slot_a if slot_a is not None else slot_b
+            combat = Combat(
+                competition_id=competition_id,
+                categorie_id=categorie_id,
+                tatami_id=tatami_id,
+                tour=first_tour,
+                position=position,
+                rouge_id=slot_a,  # None si BYE
+                bleu_id=slot_b,   # None si BYE
+                has_bye=True,
+                pret=False,  # Pas prêt car pas de vrai combat
+                vainqueur_id=winner_id,
+                termine=True,
+                statut="termine"
+            )
+            next_round_slots.append(winner_id)  # Qualifié automatiquement
+        else:
+            # Combat réel (2 combattants) ou placeholder (0 combattant, ne devrait pas arriver)
             combat = Combat(
                 competition_id=competition_id,
                 categorie_id=categorie_id,
@@ -1651,34 +1667,19 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
                 rouge_id=slot_a,
                 bleu_id=slot_b,
                 has_bye=False,
-                pret=True
+                pret=(slot_a is not None and slot_b is not None)
             )
-            combat_dict = combat.model_dump()
-            combat_dict["created_at"] = combat_dict["created_at"].isoformat()
-            await db.combats.insert_one(combat_dict)
-            combat_dict.pop("_id", None)
-            combats_created.append(combat_dict)
-            bracket_structure[first_tour].append({
-                "position": position,
-                "combat_id": combat_dict["combat_id"],
-                "status": "pending"
-            })
-            # Qualifié inconnu, sera déterminé par le résultat
-            next_round_qualifieds.append({"type": "pending", "competiteur_id": None, "source_combat_id": combat_dict["combat_id"]})
+            next_round_slots.append(None)  # Qualifié inconnu, sera déterminé par résultat
         
-        # Cas 2: 1 combattant + 1 BYE → qualifié automatiquement, PAS DE COMBAT
-        elif slot_a is not None:
-            # A qualifié par BYE (B absent)
-            next_round_qualifieds.append({"type": "bye", "competiteur_id": slot_a, "source_combat_id": None})
-        elif slot_b is not None:
-            # B qualifié par BYE (A absent)
-            next_round_qualifieds.append({"type": "bye", "competiteur_id": slot_b, "source_combat_id": None})
-        else:
-            # Cas 3: null vs null → ne devrait pas arriver, mais au cas où
-            next_round_qualifieds.append({"type": "empty", "competiteur_id": None, "source_combat_id": None})
+        combat_dict = combat.model_dump()
+        combat_dict["created_at"] = combat_dict["created_at"].isoformat()
+        await db.combats.insert_one(combat_dict)
+        combat_dict.pop("_id", None)
+        combats_created.append(combat_dict)
+        combats_by_tour[first_tour].append(combat_dict)
     
-    # ============ ÉTAPE 5: TOURS SUIVANTS - CRÉER UNIQUEMENT SI 2 QUALIFIÉS CONNUS ============
-    current_round_qualifieds = next_round_qualifieds
+    # Tours suivants : créer tous les combats avec les qualifiés connus (BYEs) ou "À déterminer"
+    current_round_qualifieds = next_round_slots
     
     for tour_idx in range(1, len(tour_names)):
         current_tour = tour_names[tour_idx]
@@ -1686,95 +1687,59 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         next_round_qualifieds = []
         
         for i in range(num_matches_this_round):
-            q1 = current_round_qualifieds[i * 2]
-            q2 = current_round_qualifieds[i * 2 + 1]
+            q1 = current_round_qualifieds[i * 2]      # Qualifié rouge (ou None si inconnu)
+            q2 = current_round_qualifieds[i * 2 + 1]  # Qualifié bleu (ou None si inconnu)
             position = i + 1
             
-            comp1 = q1.get("competiteur_id")  # None si en attente de résultat
-            comp2 = q2.get("competiteur_id")  # None si en attente de résultat
+            # Créer le combat (même si les combattants ne sont pas encore connus)
+            combat = Combat(
+                competition_id=competition_id,
+                categorie_id=categorie_id,
+                tatami_id=tatami_id,
+                tour=current_tour,
+                position=position,
+                rouge_id=q1,  # None = "À déterminer"
+                bleu_id=q2,   # None = "À déterminer"
+                has_bye=False,
+                pret=(q1 is not None and q2 is not None)
+            )
             
-            # RÈGLE ANTI-BYE: Créer le combat UNIQUEMENT si les 2 combattants sont connus
-            if comp1 is not None and comp2 is not None:
-                combat = Combat(
-                    competition_id=competition_id,
-                    categorie_id=categorie_id,
-                    tatami_id=tatami_id,
-                    tour=current_tour,
-                    position=position,
-                    rouge_id=comp1,
-                    bleu_id=comp2,
-                    has_bye=False,
-                    pret=True,
-                    # Stocker les sources pour la propagation
-                    combat_source_rouge_id=q1.get("source_combat_id"),
-                    combat_source_bleu_id=q2.get("source_combat_id")
-                )
-                combat_dict = combat.model_dump()
-                combat_dict["created_at"] = combat_dict["created_at"].isoformat()
-                await db.combats.insert_one(combat_dict)
-                combat_dict.pop("_id", None)
-                combats_created.append(combat_dict)
-                bracket_structure[current_tour].append({
-                    "position": position,
-                    "combat_id": combat_dict["combat_id"],
-                    "status": "ready"
-                })
-                next_round_qualifieds.append({"type": "pending", "competiteur_id": None, "source_combat_id": combat_dict["combat_id"]})
-            else:
-                # Un ou les deux qualifiés sont inconnus → NE PAS créer de combat
-                # Le combat sera créé dynamiquement lors de la propagation
-                bracket_structure[current_tour].append({
-                    "position": position,
-                    "status": "waiting",
-                    "waiting_for": [
-                        q1.get("source_combat_id") if q1.get("type") == "pending" else None,
-                        q2.get("source_combat_id") if q2.get("type") == "pending" else None
-                    ],
-                    # Stocker le qualifié connu s'il y en a un (pour la création dynamique)
-                    "known_rouge": comp1,
-                    "known_bleu": comp2
-                })
-                # Le qualifié de ce match est inconnu
-                next_round_qualifieds.append({
-                    "type": "waiting", 
-                    "competiteur_id": None, 
-                    "source_combat_id": None,
-                    "source_position": position,
-                    "source_tour": current_tour
-                })
+            combat_dict = combat.model_dump()
+            combat_dict["created_at"] = combat_dict["created_at"].isoformat()
+            await db.combats.insert_one(combat_dict)
+            combat_dict.pop("_id", None)
+            combats_created.append(combat_dict)
+            combats_by_tour[current_tour].append(combat_dict)
+            
+            # Pour le tour suivant, qualifié inconnu
+            next_round_qualifieds.append(None)
         
         current_round_qualifieds = next_round_qualifieds
     
-    # ============ ÉTAPE 6: MISE À JOUR DES LIENS DE PROPAGATION ============
-    # Lier chaque combat créé au combat suivant du tour suivant
+    # ============ ÉTAPE 4: MISE À JOUR DES LIENS DE PROPAGATION ============
+    # Lier chaque combat au combat suivant
     for tour_idx in range(len(tour_names) - 1):
         current_tour = tour_names[tour_idx]
         next_tour = tour_names[tour_idx + 1]
         
-        # Combats créés pour ce tour
-        for entry in bracket_structure[current_tour]:
-            if "combat_id" not in entry:
-                continue  # Ce n'est pas un combat créé
-            
-            combat_id = entry["combat_id"]
-            position = entry["position"]
+        for combat in combats_by_tour[current_tour]:
+            position = combat["position"]
             next_position = (position + 1) // 2
             next_slot = "rouge" if position % 2 == 1 else "bleu"
             
-            # Trouver le combat suivant s'il existe
-            next_entry = next((e for e in bracket_structure[next_tour] if e.get("position") == next_position), None)
+            # Trouver le combat suivant
+            next_combat = next((c for c in combats_by_tour[next_tour] if c["position"] == next_position), None)
             
-            if next_entry and "combat_id" in next_entry:
+            if next_combat:
                 await db.combats.update_one(
-                    {"combat_id": combat_id},
+                    {"combat_id": combat["combat_id"]},
                     {"$set": {
-                        "combat_suivant_id": next_entry["combat_id"],
+                        "combat_suivant_id": next_combat["combat_id"],
                         "combat_suivant_slot": next_slot
                     }}
                 )
     
-    # ============ ÉTAPE 7: SAUVEGARDER LA STRUCTURE DU BRACKET ============
-    # Stocker la structure pour permettre la création dynamique des combats futurs
+    # ============ ÉTAPE 5: METTRE À JOUR LA CATÉGORIE ============
     await db.categories.update_one(
         {"categorie_id": categorie_id},
         {"$set": {
@@ -1783,26 +1748,26 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             "bracket_size": bracket_size,
             "num_byes": bye_count,
             "byes_locked": False,
-            "tour_names": tour_names,
-            "bracket_structure": bracket_structure
+            "tour_names": tour_names
         }}
     )
     
     # ============ STATISTIQUES ============
-    combats_reels = len(combats_created)
-    total_combats_prevu = n - 1  # Dans un tournoi à élimination directe: n-1 combats
-    combats_restants = total_combats_prevu - combats_reels
+    total_combats = len(combats_created)
+    combats_byes = len([c for c in combats_created if c.get("has_bye")])
+    combats_reels = total_combats - combats_byes
+    combats_prets = len([c for c in combats_created if c.get("pret") and not c.get("termine")])
     
     return {
-        "message": f"Arbre généré: {combats_reels} combats créés sur {total_combats_prevu} prévus ({n} combattants, {bye_count} BYEs)",
+        "message": f"Arbre complet généré: {total_combats} combats ({combats_reels} réels, {combats_byes} BYEs) pour {n} combattants",
         "combats": combats_created,
         "nb_combattants": n,
         "bracket_size": bracket_size,
         "nb_byes": bye_count,
         "tours": tour_names,
-        "combats_crees": combats_reels,
-        "combats_restants": combats_restants,
-        "total_combats_prevu": total_combats_prevu
+        "combats_par_tour": {tour: len(combats_by_tour[tour]) for tour in tour_names},
+        "combats_prets": combats_prets,
+        "total_combats": total_combats
     }
 
 @api_router.put("/combats/{combat_id}/resultat")
@@ -1859,9 +1824,9 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
     """
     Propage le vainqueur au combat suivant.
     
-    SYSTÈME ANTI-BYE VISUEL:
-    - Si le combat suivant existe → Met à jour le combattant
-    - Si le combat suivant N'existe PAS → Le crée dynamiquement si les 2 combattants sont connus
+    LOGIQUE SIMPLIFIÉE:
+    - Tous les combats sont créés dès le départ
+    - On met simplement à jour le slot (rouge ou bleu) du combat suivant
     
     Supporte:
     - Le système automatique (basé sur tour/position)
@@ -1872,7 +1837,6 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
     - Les perdants des demi-finales reçoivent le bronze automatiquement
     """
     categorie_id = combat["categorie_id"]
-    competition_id = combat["competition_id"]
     tour = combat["tour"]
     position = combat["position"]
     
@@ -1895,7 +1859,7 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
         await update_combat_pret_status(combat["combat_suivant_id"])
         return
     
-    # ========== PROPAGATION AUTOMATIQUE AVEC CRÉATION DYNAMIQUE ==========
+    # ========== PROPAGATION AUTOMATIQUE ==========
     if tour not in TOUR_SUIVANT:
         return  # Finale ou tour inconnu, pas de propagation
     
@@ -1903,7 +1867,7 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
     next_position = (position + 1) // 2
     next_slot = "rouge" if position % 2 == 1 else "bleu"
     
-    # Chercher le combat suivant
+    # Chercher le combat suivant (il devrait toujours exister car créé à la génération)
     next_combat = await db.combats.find_one({
         "categorie_id": categorie_id,
         "tour": next_tour,
@@ -1911,80 +1875,13 @@ async def propager_vainqueur(combat: dict, vainqueur_id: str):
     }, {"_id": 0})
     
     if next_combat:
-        # Le combat existe → mettre à jour le combattant
+        # Mettre à jour le combattant dans le slot approprié
         field = "rouge_id" if next_slot == "rouge" else "bleu_id"
         await db.combats.update_one(
             {"combat_id": next_combat["combat_id"]},
             {"$set": {field: vainqueur_id}}
         )
         await update_combat_pret_status(next_combat["combat_id"])
-    else:
-        # Le combat N'EXISTE PAS encore → Création dynamique si possible
-        # Récupérer la structure du bracket pour connaître le qualifié adverse
-        categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
-        bracket_structure = categorie.get("bracket_structure", {})
-        
-        # Trouver l'entrée correspondante dans la structure
-        tour_structure = bracket_structure.get(next_tour, [])
-        entry = next((e for e in tour_structure if e.get("position") == next_position), None)
-        
-        if entry and entry.get("status") == "waiting":
-            # Récupérer le qualifié connu (BYE ou autre)
-            known_rouge = entry.get("known_rouge")
-            known_bleu = entry.get("known_bleu")
-            
-            # Déterminer les combattants du nouveau combat
-            if next_slot == "rouge":
-                rouge_id = vainqueur_id
-                bleu_id = known_bleu
-            else:
-                rouge_id = known_rouge
-                bleu_id = vainqueur_id
-            
-            # Créer le combat SEULEMENT si les 2 combattants sont connus
-            if rouge_id is not None and bleu_id is not None:
-                new_combat = Combat(
-                    competition_id=competition_id,
-                    categorie_id=categorie_id,
-                    tatami_id=combat.get("tatami_id"),  # Hériter de l'aire si possible
-                    tour=next_tour,
-                    position=next_position,
-                    rouge_id=rouge_id,
-                    bleu_id=bleu_id,
-                    has_bye=False,
-                    pret=True
-                )
-                combat_dict = new_combat.model_dump()
-                combat_dict["created_at"] = combat_dict["created_at"].isoformat()
-                await db.combats.insert_one(combat_dict)
-                
-                # Mettre à jour la structure du bracket
-                await db.categories.update_one(
-                    {"categorie_id": categorie_id, "bracket_structure." + next_tour + ".position": next_position},
-                    {"$set": {
-                        "bracket_structure." + next_tour + ".$.status": "ready",
-                        "bracket_structure." + next_tour + ".$.combat_id": combat_dict["combat_id"]
-                    }}
-                )
-                
-                # Lier le combat actuel au nouveau combat
-                await db.combats.update_one(
-                    {"combat_id": combat["combat_id"]},
-                    {"$set": {
-                        "combat_suivant_id": combat_dict["combat_id"],
-                        "combat_suivant_slot": next_slot
-                    }}
-                )
-            else:
-                # Un seul qualifié connu → stocker dans la structure pour plus tard
-                update_field = "known_rouge" if next_slot == "rouge" else "known_bleu"
-                for i, e in enumerate(tour_structure):
-                    if e.get("position") == next_position:
-                        await db.categories.update_one(
-                            {"categorie_id": categorie_id},
-                            {"$set": {f"bracket_structure.{next_tour}.{i}.{update_field}": vainqueur_id}}
-                        )
-                        break
 
 @api_router.post("/combats/{categorie_id}/attribuer-medailles")
 async def attribuer_medailles(categorie_id: str, user: User = Depends(require_admin)):
