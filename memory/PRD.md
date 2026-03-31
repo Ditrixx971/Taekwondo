@@ -164,6 +164,31 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Bouton "Modifier BYEs" pour le MASTER
   - Information bracket_size et num_byes dans l'en-tête
 
+### Phase 13 (31 Mar 2026) - Refonte UI Arbre des Combats ✅
+- **Design compact et professionnel**:
+  - Composant MatchCompact : une ligne par combattant avec points colorés (bleu/rouge)
+  - Hauteur max 60px par combat, police 12-13px
+  - Clubs affichés entre parenthèses
+  - Trophée jaune discret pour le vainqueur
+- **Colonnes de tours**:
+  - Organisation horizontale : Quarts → Demis → Finale → Champion
+  - Labels en haut de chaque colonne
+  - Espacement dynamique selon la profondeur du tour
+- **Export PDF (jsPDF)**:
+  - Format A4 paysage (A3 pour brackets >15 combats)
+  - En-tête : Nom compétition + Catégorie + Date
+  - Combats avec codes couleurs B:/R:
+  - Pied de page : Date d'impression + Page N/N
+  - Fichier nommé : arbre_{categorie}_{date}.pdf
+- **Impression optimisée**:
+  - CSS @media print avec @page A4 landscape
+  - Masquage sidebar et boutons
+  - En-tête et pied de page imprimés
+- **Podium compact**:
+  - Style médailles avec emoji 🥇🥈🥉
+  - Bronze ex-aequo affiché côte à côte
+  - Message "Règles World Taekwondo"
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs
