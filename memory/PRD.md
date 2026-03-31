@@ -189,6 +189,28 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Bronze ex-aequo affiché côte à côte
   - Message "Règles World Taekwondo"
 
+### Phase 14 (31 Mar 2026) - Correction Logique Génération Arbre ✅
+- **Règle fondamentale - Puissance de 2 stricte**:
+  - 2 combattants → bracket de 2 (finale)
+  - 3-4 combattants → bracket de 4 (demis + finale)
+  - 5-8 combattants → bracket de 8 (quarts + demis + finale)
+  - 9-16 combattants → bracket de 16 (8èmes + quarts + demis + finale)
+  - 17-32 combattants → bracket de 32 (16èmes + 8èmes + quarts + demis + finale)
+- **Exemple vérifié pour 13 combattants**:
+  - Bracket size = 16 ✅
+  - BYEs = 3 (16-13) ✅
+  - Tours = huitieme, quart, demi, finale (4 tours) ✅
+  - Total combats = 12 (13-1) ✅
+  - Distribution = 5 huitièmes + 4 quarts + 2 demis + 1 finale ✅
+- **Propagation des BYEs**:
+  - Les vainqueurs des BYEs apparaissent directement au tour suivant
+  - Les autres cases restent "À déterminer" jusqu'au résultat
+- **Garanties**:
+  - JAMAIS de tour manquant ou sauté
+  - JAMAIS de bracket intermédiaire
+  - Tous les tours générés dès la création
+- **Tests passés**: Backend 7/7 (100%) + Frontend 10/10 (100%)
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs
