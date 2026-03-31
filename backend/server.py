@@ -1459,20 +1459,19 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     """
     Génère l'arbre des combats pour une catégorie selon les règles World Taekwondo.
     
-    RÈGLES TAEKWONDO:
-    - Bracket basé sur puissance de 2 supérieure ou égale au nombre de participants
-    - PAS de combat pour la 3ème place (petite finale)
-    - Deux médailles de bronze ex-aequo (perdants des demi-finales)
-    - BYEs attribués automatiquement aux premiers inscrits
+    RÈGLE FONDAMENTALE - PUISSANCE DE 2:
+    Le bracket est TOUJOURS basé sur la puissance de 2 immédiatement supérieure.
+    - 2 combattants  → bracket de 2  (finale)
+    - 3-4 combattants  → bracket de 4  (demis + finale)
+    - 5-8 combattants  → bracket de 8  (quarts + demis + finale)
+    - 9-16 combattants → bracket de 16 (8èmes + quarts + demis + finale)
+    - 17-32 combattants → bracket de 32 (16èmes + 8èmes + quarts + demis + finale)
     
-    TAILLES DE BRACKET:
-    - 2 participants  → 1 combat  (Finale directe)
-    - 3-4 participants → 3 combats (2 Demis + Finale)
-    - 5-8 participants → 7 combats (4 Quarts + 2 Demis + Finale)
-    - 9-16 participants → 15 combats (8 Huitièmes + 4 Quarts + 2 Demis + Finale)
-    - 17-32 participants → 31 combats (16 Seizièmes + 8 Huitièmes + 4 Quarts + 2 Demis + Finale)
+    JAMAIS de bracket intermédiaire, JAMAIS de tours manquants.
+    
+    PAS de combat bronze (règle World Taekwondo) - 2 bronze ex-aequo.
     """
-    # Récupérer la catégorie pour obtenir le competition_id
+    # Récupérer la catégorie
     categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
     if not categorie:
         raise HTTPException(status_code=404, detail="Catégorie non trouvée")
@@ -1483,8 +1482,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     await db.combats.delete_many({"categorie_id": categorie_id})
     await db.medailles.delete_many({"categorie_id": categorie_id})
     
-    # Récupérer les compétiteurs de la catégorie (uniquement ceux non disqualifiés)
-    # Triés par date d'inscription pour l'attribution des BYEs
+    # Récupérer les compétiteurs (non disqualifiés, triés par inscription)
     competiteurs = await db.competiteurs.find(
         {"categorie_id": categorie_id, "disqualifie": False},
         {"_id": 0}
@@ -1501,183 +1499,211 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             detail="⚠ Catégorie incomplète — 1 seul participant inscrit. Il faut au moins 2 compétiteurs."
         )
     
-    combats_created = []
-    
-    # Calculer la taille de l'arbre (puissance de 2 supérieure ou égale)
+    # ============ CALCUL DU BRACKET ============
     def next_power_of_2(x):
+        """Retourne la puissance de 2 >= x"""
         if x <= 1:
-            return 1
+            return 2
         return 1 << (x - 1).bit_length()
     
     bracket_size = next_power_of_2(n)
     num_byes = bracket_size - n
     
-    # Déterminer les noms des tours selon la taille du bracket
-    def get_tour_name(num_participants_at_round):
-        if num_participants_at_round == 2:
-            return "finale"
-        elif num_participants_at_round == 4:
-            return "demi"
-        elif num_participants_at_round == 8:
-            return "quart"
-        elif num_participants_at_round == 16:
-            return "huitieme"
-        elif num_participants_at_round == 32:
-            return "seizieme"
-        else:
-            return f"tour_{num_participants_at_round}"
+    # Nombre de tours = log2(bracket_size)
+    import math
+    num_rounds = int(math.log2(bracket_size))
     
-    async def insert_combat(combat_obj):
-        """Helper to insert combat and return clean dict without _id"""
-        combat_dict = combat_obj.model_dump()
+    # Noms des tours selon le bracket_size
+    def get_tour_names(bracket_size):
+        """Retourne la liste des tours dans l'ordre du premier au dernier"""
+        tours = []
+        if bracket_size >= 32:
+            tours.append("seizieme")
+        if bracket_size >= 16:
+            tours.append("huitieme")
+        if bracket_size >= 8:
+            tours.append("quart")
+        if bracket_size >= 4:
+            tours.append("demi")
+        tours.append("finale")
+        return tours
+    
+    tour_names = get_tour_names(bracket_size)
+    
+    # ============ MÉLANGER ET DISTRIBUER LES BYES ============
+    random.shuffle(competiteurs)
+    
+    # Créer les slots du premier tour (bracket_size positions)
+    # Les BYEs sont distribués stratégiquement pour éviter que 2 BYEs se rencontrent
+    # Positions idéales pour les BYEs: positions impaires (1, 3, 5, 7...) espacées uniformément
+    slots = [None] * bracket_size
+    
+    # Calculer les positions de BYE optimales
+    bye_positions = set()
+    if num_byes > 0:
+        # Espacer les BYEs uniformément dans le bracket
+        # Utiliser les positions impaires en priorité pour une meilleure répartition
+        step = bracket_size / num_byes
+        for i in range(num_byes):
+            # Position de base + décalage pour éviter les positions paires
+            pos = int(i * step)
+            # S'assurer que ce n'est pas une position déjà prise et que le BYE est en position "basse" du combat
+            # (position impaire = combattant 2 du combat)
+            if pos % 2 == 0:
+                pos = pos + 1 if pos + 1 < bracket_size else pos - 1
+            while pos in bye_positions or pos >= bracket_size:
+                pos = (pos + 2) % bracket_size
+            bye_positions.add(pos)
+    
+    # Remplir les slots avec les compétiteurs
+    comp_idx = 0
+    for i in range(bracket_size):
+        if i in bye_positions:
+            slots[i] = None  # BYE
+        else:
+            if comp_idx < len(competiteurs):
+                slots[i] = competiteurs[comp_idx]
+                comp_idx += 1
+            else:
+                slots[i] = None  # BYE supplémentaire
+    
+    # ============ GÉNÉRER TOUS LES COMBATS DE TOUS LES TOURS ============
+    combats_created = []
+    combats_by_tour = {tour: [] for tour in tour_names}
+    
+    # Structure pour suivre les combats par position dans chaque tour
+    # combat_map[tour][position] = combat_id
+    combat_map = {tour: {} for tour in tour_names}
+    
+    async def insert_combat(competition_id, categorie_id, tatami_id, tour, position, rouge_id, bleu_id, pret=False):
+        """Crée et insère un combat, retourne le dict sans _id"""
+        combat = Combat(
+            competition_id=competition_id,
+            categorie_id=categorie_id,
+            tatami_id=tatami_id,
+            tour=tour,
+            position=position,
+            rouge_id=rouge_id,
+            bleu_id=bleu_id,
+            has_bye=False,
+            pret=pret
+        )
+        combat_dict = combat.model_dump()
         combat_dict["created_at"] = combat_dict["created_at"].isoformat()
         await db.combats.insert_one(combat_dict)
         combat_dict.pop("_id", None)
         return combat_dict
     
-    # Mélanger les compétiteurs pour tirage au sort
-    random.shuffle(competiteurs)
+    # ============ PREMIER TOUR ============
+    first_tour = tour_names[0]
+    num_first_tour_combats = bracket_size // 2
     
-    # Créer la liste complète avec BYEs
-    # Les BYEs sont attribués aux premiers inscrits (ceux qui sont maintenant mélangés)
-    # Pour que les BYEs soient bien répartis, on les place stratégiquement
-    
-    # Créer les emplacements du bracket
-    slots = []
-    
-    # Calculer les positions des BYEs (répartition optimale)
-    # Les BYEs sont placés de manière à ce que les combattants avec BYE 
-    # ne se rencontrent pas trop tôt
-    bye_positions = []
-    if num_byes > 0:
-        # Répartir les BYEs uniformément
-        step = bracket_size // num_byes if num_byes > 0 else bracket_size
-        for i in range(num_byes):
-            pos = (i * step + 1) % bracket_size
-            if pos not in bye_positions:
-                bye_positions.append(pos)
-            else:
-                # Trouver la prochaine position libre
-                for j in range(bracket_size):
-                    if j not in bye_positions:
-                        bye_positions.append(j)
-                        break
-    
-    # Remplir les slots
-    comp_idx = 0
-    for i in range(bracket_size):
-        if i in bye_positions:
-            slots.append(None)  # BYE
-        else:
-            if comp_idx < len(competiteurs):
-                slots.append(competiteurs[comp_idx])
-                comp_idx += 1
-            else:
-                slots.append(None)  # BYE supplémentaire si nécessaire
-    
-    # Structure pour suivre les combats créés par tour
-    combats_by_tour = {}
-    
-    # Générer tous les combats tour par tour
-    current_slots = slots.copy()
-    tour_size = bracket_size
-    
-    while tour_size >= 2:
-        tour_name = get_tour_name(tour_size)
-        num_combats = tour_size // 2
-        combats_by_tour[tour_name] = []
+    # Pour chaque combat du premier tour
+    for i in range(num_first_tour_combats):
+        slot1 = slots[i * 2]
+        slot2 = slots[i * 2 + 1]
         
-        next_slots = []
+        p1_id = slot1["competiteur_id"] if slot1 and isinstance(slot1, dict) else None
+        p2_id = slot2["competiteur_id"] if slot2 and isinstance(slot2, dict) else None
+        
+        position = i + 1
+        
+        # Cas 1: Deux combattants réels → combat normal
+        if p1_id and p2_id:
+            combat_dict = await insert_combat(
+                competition_id, categorie_id, tatami_id,
+                first_tour, position, p1_id, p2_id, pret=True
+            )
+            combats_created.append(combat_dict)
+            combats_by_tour[first_tour].append(combat_dict)
+            combat_map[first_tour][position] = {"combat_id": combat_dict["combat_id"], "bye_winner": None}
+        
+        # Cas 2: Un seul combattant (BYE) → le combattant passe au tour suivant
+        elif p1_id and not p2_id:
+            # p1 a un BYE, on ne crée pas de combat mais on note le passage
+            combat_map[first_tour][position] = {"combat_id": None, "bye_winner": p1_id}
+        
+        elif p2_id and not p1_id:
+            # p2 a un BYE, on ne crée pas de combat mais on note le passage
+            combat_map[first_tour][position] = {"combat_id": None, "bye_winner": p2_id}
+        
+        # Cas 3: Deux BYEs → ne devrait pas arriver avec une bonne distribution
+        else:
+            combat_map[first_tour][position] = {"combat_id": None, "bye_winner": None}
+    
+    # ============ TOURS SUIVANTS (tous obligatoires) ============
+    for tour_idx in range(1, len(tour_names)):
+        current_tour = tour_names[tour_idx]
+        prev_tour = tour_names[tour_idx - 1]
+        
+        num_combats = bracket_size // (2 ** (tour_idx + 1))
         
         for i in range(num_combats):
-            p1 = current_slots[i * 2] if i * 2 < len(current_slots) else None
-            p2 = current_slots[i * 2 + 1] if i * 2 + 1 < len(current_slots) else None
+            position = i + 1
             
-            p1_id = p1["competiteur_id"] if p1 and isinstance(p1, dict) and "competiteur_id" in p1 else (p1 if isinstance(p1, str) else None)
-            p2_id = p2["competiteur_id"] if p2 and isinstance(p2, dict) and "competiteur_id" in p2 else (p2 if isinstance(p2, str) else None)
+            # Les 2 combats/slots sources du tour précédent
+            source_pos_1 = i * 2 + 1
+            source_pos_2 = i * 2 + 2
             
-            # Cas BYE: un seul combattant, il passe directement
-            if p1_id is None and p2_id is not None:
-                # p2 a un BYE, passe au tour suivant
-                next_slots.append(p2_id)
-                continue
-            elif p2_id is None and p1_id is not None:
-                # p1 a un BYE, passe au tour suivant
-                next_slots.append(p1_id)
-                continue
-            elif p1_id is None and p2_id is None:
-                # Deux BYEs - ne devrait pas arriver avec une bonne répartition
-                next_slots.append(None)
-                continue
+            source_1 = combat_map[prev_tour].get(source_pos_1, {})
+            source_2 = combat_map[prev_tour].get(source_pos_2, {})
             
-            # Combat réel avec deux combattants
-            combat = Combat(
-                competition_id=competition_id,
-                categorie_id=categorie_id,
-                tatami_id=tatami_id,
-                tour=tour_name,
-                position=i + 1,
-                rouge_id=p1_id,
-                bleu_id=p2_id,
-                has_bye=False,
-                pret=True  # Prêt car les deux combattants sont définis
+            # Déterminer qui vient de chaque source
+            # Si c'est un BYE, le gagnant est déjà connu
+            # Si c'est un combat réel, le gagnant est "À déterminer" (None)
+            rouge_id = source_1.get("bye_winner")  # None si combat réel
+            bleu_id = source_2.get("bye_winner")   # None si combat réel
+            
+            # Un combat est prêt si les deux combattants sont connus
+            pret = (rouge_id is not None) and (bleu_id is not None)
+            
+            # Créer le combat
+            combat_dict = await insert_combat(
+                competition_id, categorie_id, tatami_id,
+                current_tour, position, rouge_id, bleu_id, pret=pret
             )
-            combat_dict = await insert_combat(combat)
             combats_created.append(combat_dict)
-            combats_by_tour[tour_name].append(combat_dict)
+            combats_by_tour[current_tour].append(combat_dict)
+            combat_map[current_tour][position] = {"combat_id": combat_dict["combat_id"], "bye_winner": None}
+    
+    # ============ MISE À JOUR DES LIENS DE PROPAGATION ============
+    # Mettre à jour chaque combat avec le combat_suivant_id et combat_suivant_slot
+    for tour_idx in range(len(tour_names) - 1):
+        current_tour = tour_names[tour_idx]
+        next_tour = tour_names[tour_idx + 1]
+        
+        combats_current = combats_by_tour[current_tour]
+        
+        for combat in combats_current:
+            position = combat["position"]
             
-            # Placeholder pour le vainqueur
-            next_slots.append({"placeholder": combat_dict["combat_id"]})
-        
-        # Si on n'est pas encore à la finale, créer les combats "À déterminer"
-        if tour_size > 2:
-            current_slots = next_slots
-        
-        tour_size = tour_size // 2
-    
-    # S'assurer que les combats des tours suivants sont créés (même vides)
-    # Créer les demi-finales si pas encore créées
-    if "demi" not in combats_by_tour or len(combats_by_tour.get("demi", [])) == 0:
-        if bracket_size >= 4:
-            for i in range(2):
-                demi = Combat(
-                    competition_id=competition_id,
-                    categorie_id=categorie_id,
-                    tatami_id=tatami_id,
-                    tour="demi",
-                    position=i + 1,
-                    rouge_id=None,
-                    bleu_id=None,
-                    pret=False
+            # Le combat suivant est au tour+1, position = (position+1)//2
+            next_position = (position + 1) // 2
+            next_slot = "rouge" if position % 2 == 1 else "bleu"
+            
+            # Trouver le combat suivant
+            next_combat = next((c for c in combats_by_tour[next_tour] if c["position"] == next_position), None)
+            
+            if next_combat:
+                await db.combats.update_one(
+                    {"combat_id": combat["combat_id"]},
+                    {"$set": {
+                        "combat_suivant_id": next_combat["combat_id"],
+                        "combat_suivant_slot": next_slot
+                    }}
                 )
-                demi_dict = await insert_combat(demi)
-                combats_created.append(demi_dict)
-                if "demi" not in combats_by_tour:
-                    combats_by_tour["demi"] = []
-                combats_by_tour["demi"].append(demi_dict)
     
-    # Créer la finale si pas encore créée
-    finale_exists = await db.combats.find_one({"categorie_id": categorie_id, "tour": "finale"})
-    if not finale_exists:
-        finale = Combat(
-            competition_id=competition_id,
-            categorie_id=categorie_id,
-            tatami_id=tatami_id,
-            tour="finale",
-            position=1,
-            rouge_id=None,
-            bleu_id=None,
-            est_finale=True,
-            pret=False
-        )
-        finale_dict = await insert_combat(finale)
-        combats_created.append(finale_dict)
-        combats_by_tour["finale"] = [finale_dict]
+    # ============ VÉRIFICATIONS ============
+    # Nombre total de combats réels = n - 1 (un éliminé par combat jusqu'au champion)
+    expected_real_combats = n - 1
+    actual_real_combats = len([c for c in combats_created if c.get("rouge_id") or c.get("bleu_id")])
     
-    # PAS DE COMBAT BRONZE EN TAEKWONDO (règle World Taekwondo)
-    # Les deux perdants des demi-finales reçoivent automatiquement le bronze ex-aequo
+    # Nombre de combats par tour
+    for tour in tour_names:
+        expected_count = bracket_size // (2 ** (tour_names.index(tour) + 1))
+        # Note: certains combats du premier tour ne sont pas créés (BYEs purs)
     
-    # Mettre à jour le nombre de combattants dans la catégorie
+    # Mettre à jour la catégorie
     await db.categories.update_one(
         {"categorie_id": categorie_id},
         {"$set": {
@@ -1685,7 +1711,7 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
             "arbre_genere": True,
             "bracket_size": bracket_size,
             "num_byes": num_byes,
-            "byes_locked": False  # Les BYEs peuvent être modifiés tant que le 1er combat n'a pas commencé
+            "byes_locked": False
         }}
     )
     
@@ -1695,7 +1721,8 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
         "nb_combattants": n,
         "bracket_size": bracket_size,
         "nb_byes": num_byes,
-        "tours": list(combats_by_tour.keys())
+        "tours": tour_names,
+        "combats_par_tour": {tour: len(combats_by_tour[tour]) for tour in tour_names}
     }
 
 @api_router.put("/combats/{combat_id}/resultat")

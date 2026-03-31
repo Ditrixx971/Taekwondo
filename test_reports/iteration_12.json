@@ -1,0 +1,78 @@
+{
+  "summary": "Complete testing of bracket generation logic for combat organizer. Verified POST /api/combats/generer/{categorie_id} correctly generates brackets with power-of-2 logic. All tests passed for 13 fighters (bracket=16, byes=3, tours=[huitieme,quart,demi,finale], combats=12) and 21 fighters (bracket=32, byes=11, tours=[seizieme,huitieme,quart,demi,finale]).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": {
+    "backend": [
+      "test_auth_me_works - Authentication working (PASSED)",
+      "test_category_13_fighters_exists - Category cat_d37cbd4d207d has 13 fighters (PASSED)",
+      "test_generate_bracket_13_fighters - Bracket=16, BYEs=3, Tours=[huitieme,quart,demi,finale], Combats=12 (PASSED)",
+      "test_arbre_endpoint_13_fighters - All 4 tours present, BYE winners in quarts, undetermined slots show 'À déterminer' (PASSED)",
+      "test_generate_bracket_21_fighters - Bracket=32, BYEs=11, Tours=[seizieme,huitieme,quart,demi,finale] (PASSED)",
+      "test_power_of_2_calculation - All power-of-2 calculations correct (PASSED)",
+      "test_tour_names_by_bracket_size - Tour names correct for all bracket sizes (PASSED)"
+    ],
+    "frontend": [
+      "ArbreCombatPage loads correctly (PASSED)",
+      "Page title 'ARBRE DES COMBATS' displayed (PASSED)",
+      "Bracket info header shows 'Bracket 16 • 3 BYE(s) • 12 combats' for Seniors Masculin -68kg (PASSED)",
+      "Category selector works - selected Seniors Masculin -68kg (PASSED)",
+      "All 4 tours displayed: 8ÈMES, QUARTS, DEMI-FINALES, FINALE (PASSED)",
+      "5 huitiemes combats visible (#2, #4, #5, #7, #8) (PASSED)",
+      "4 quarts combats visible with BYE winners already assigned (PASSED)",
+      "2 demi-finales combats visible with 'À déterminer' (PASSED)",
+      "1 finale combat visible with 'À déterminer' (PASSED)",
+      "BYE winners correctly propagated to quarts (Name5, Name6, Name10 visible) (PASSED)"
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bracket_generation.py",
+    "/app/test_reports/pytest/pytest_bracket_generation.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "generer_tableau function correctly implements power-of-2 bracket logic",
+    "BYE distribution uses strategic positioning to avoid 2 BYEs meeting",
+    "All tours are generated (no skipping) - huitieme, quart, demi, finale for bracket=16",
+    "BYE winners correctly propagate to next round immediately",
+    "Remaining slots marked as 'À déterminer' until combat results are entered",
+    "Category metadata updated with bracket_size, num_byes, byes_locked fields"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bracket_generation.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% (10/10 features verified)"
+  },
+  "test_credentials": {
+    "MASTER_email": "admin2@test.com",
+    "MASTER_password": "admin123"
+  },
+  "seed_data_used": {
+    "competition": "OPEN PETIT BOURG (comp_52f906b963d6)",
+    "category_13_fighters": "Seniors Masculin -68kg (cat_d37cbd4d207d)",
+    "category_21_fighters": "cat_b4473d524a47"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bracket generation logic completely rewritten and verified. Key test cases: 13 fighters → bracket=16, byes=3, 4 tours, 12 combats. 21 fighters → bracket=32, byes=11, 5 tours. All power-of-2 calculations correct. Frontend displays all tours correctly with proper labels (8èmes, Quarts, Demi-finales, Finale). BYE winners appear in next round immediately.",
+  "verified_requirements": {
+    "bracket_size_power_of_2": "VERIFIED - 13 fighters → bracket=16",
+    "byes_calculation": "VERIFIED - 16-13=3 BYEs",
+    "all_tours_created": "VERIFIED - huitieme, quart, demi, finale (4 tours)",
+    "total_combats": "VERIFIED - 12 combats (13-1)",
+    "combats_distribution": "VERIFIED - 5 huitiemes + 4 quarts + 2 demis + 1 finale",
+    "bye_winners_in_quarts": "VERIFIED - 3 fighters visible in quarts",
+    "undetermined_slots": "VERIFIED - Shows 'À déterminer'",
+    "frontend_display": "VERIFIED - All tours displayed with correct labels",
+    "bracket_info_header": "VERIFIED - Shows 'Bracket 16 • 3 BYE(s) • 12 combats'"
+  }
+}
