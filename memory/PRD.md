@@ -196,27 +196,34 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - 5-8 combattants → bracket de 8 (quarts + demis + finale)
   - 9-16 combattants → bracket de 16 (8èmes + quarts + demis + finale)
   - 17-32 combattants → bracket de 32 (16èmes + 8èmes + quarts + demis + finale)
-- **Tests passés**: Backend 7/7 (100%) + Frontend 10/10 (100%)
 
-### Phase 15 (31 Mar 2026) - Logique Anti-BYE Visuel ✅
-- **Nouvelle règle fondamentale**: Un combat est créé UNIQUEMENT si les 2 combattants sont connus (A != null ET B != null)
-- **Comportement des BYEs**:
-  - Les BYEs ne créent PAS de combat visible
-  - Les gagnants par BYE sont propagés automatiquement et silencieusement
-  - Les gagnants BYE sont stockés dans `bracket_structure.known_rouge/known_bleu` pour création dynamique
-- **Création dynamique des combats**:
-  - Les combats futurs (quarts, demis, finale) sont créés lors de la saisie des résultats
-  - Quand un résultat est saisi, le système vérifie si le combat suivant peut être créé (2 combattants connus)
-  - La fonction `propager_vainqueur` crée les combats dynamiquement
+### Phase 15 (31 Mar 2026) - Arbre Complet Visible dès le Départ ✅
+- **Règle fondamentale**: L'arbre COMPLET est créé et visible dès la génération
+- **Affichage immédiat de tous les tours**:
+  - Tous les combats de tous les tours sont créés à la génération
+  - Les cases vides affichent "À déterminer"
+  - L'arbre ne se construit PAS au fur et à mesure — il est visible en entier dès le départ
+- **Gestion des BYEs**:
+  - Les BYEs sont affichés (combattant vs case vide avec has_bye=True)
+  - Les combats BYE sont marqués termine=True immédiatement
+  - Les gagnants BYE sont propagés automatiquement vers le tour suivant
+  - Exemple: 13 combattants → 3 BYEs → 3 qualifiés directs en quarts
+- **Structure stricte**:
+  - Chaque tour = exactement la moitié du tour précédent
+  - 16èmes=16, 8èmes=8, Quarts=4, Demis=2, Finale=1
+- **Propagation automatique des vainqueurs**:
+  - Dès qu'un résultat est saisi, le vainqueur apparaît dans le tour suivant
+  - La mise à jour est automatique via `propager_vainqueur`
+- **Élimination directe**:
+  - Perdant définitivement éliminé (pas de repêchage)
+  - Pas de combat pour la 3ème place (2 bronzes ex-aequo)
 - **Exemple vérifié pour 13 combattants**:
   - Bracket size = 16 ✅
-  - BYEs = 3 (16-13) ✅
-  - Combats créés à la génération = 5 (et non 8 avec des BYEs) ✅
-  - API `/api/combats/arbre` retourne 0 combat avec rouge/bleu = null ✅
-- **Frontend**:
-  - 0 occurrence de "À déterminer" dans l'affichage de l'arbre
-  - Affichage propre sans combats "fantômes"
-- **Tests passés**: Backend 10/10 (100%) + Frontend 8/8 (100%)
+  - BYEs = 3 ✅
+  - Total combats = 15 (8 huitièmes + 4 quarts + 2 demis + 1 finale) ✅
+  - 3 BYEs terminés automatiquement ✅
+  - Qualifiés BYE propagés vers les quarts ✅
+- **Tests passés**: Backend 16/16 (100%) + Frontend 100%
 
 ## API Endpoints Clés
 
