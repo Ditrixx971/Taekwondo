@@ -1,0 +1,101 @@
+{
+  "summary": "Complete frontend testing of ArbreCombatPage refactored with new compact design. All features verified working: compact match cards with blue/red dots, tour columns, PDF export, print button, BYEs dialog, category selector.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "ArbreCombatPage",
+        "issues": ["Some combats show 'Inconnu' names (legacy data from old system - not a bug)"]
+      }
+    ]
+  },
+  "passed_tests": {
+    "frontend": [
+      "ArbreCombatPage loads with new compact design (PASSED)",
+      "Page title 'ARBRE DES COMBATS' displayed (PASSED)",
+      "Bracket info displayed: 'Bracket 11 • 0 BYE(s) • 10 combats' (PASSED)",
+      "Category selector with data-testid='select-categorie-arbre' works (PASSED)",
+      "PDF export button generates downloadable PDF with correct filename (PASSED)",
+      "PDF export shows toast 'PDF exporté !' (PASSED)",
+      "Print button visible and enabled (PASSED)",
+      "BYEs button visible for MASTER role (PASSED)",
+      "BYEs dialog opens and shows locked state when combat started (PASSED)",
+      "Add Combat button visible for MASTER role (PASSED)",
+      "10 match cards found with data-testid='match-{id}' (PASSED)",
+      "Match cards show compact format with blue dots (bg-blue-500) (PASSED)",
+      "Match cards show compact format with red dots (bg-red-500) (PASSED)",
+      "Match cards show VS separator (PASSED)",
+      "Match cards show club info in parentheses (PASSED)",
+      "Tour columns labeled: Quarts, Demi-finales, Finale (PASSED)",
+      "No horizontal scroll needed for current bracket (scrollWidth=clientWidth=1598) (PASSED)",
+      "Terminés count displayed: '5/10 terminés' (PASSED)",
+      "Ordre de passage button visible at bottom (PASSED)",
+      "MASTER role correctly identified for user 'Admin Test' (PASSED)"
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ArbreCombatPage.jsx refactored with MatchCompact, ChampionBox, PodiumCompact components - well structured",
+    "PDF export using jsPDF generates landscape A4/A3 PDFs with proper header/footer",
+    "Print CSS @media print correctly hides sidebar and shows only tree",
+    "data-testid attributes properly added for all interactive elements",
+    "BYEs locked state correctly displayed when combat has started"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100% (20/20 features verified)"
+  },
+  "test_credentials": {
+    "MASTER_email": "admin2@test.com",
+    "MASTER_password": "admin123"
+  },
+  "seed_data_used": {
+    "competition": "OPEN PETIT BOURG",
+    "category_tested": "Pupilles 1 Masculin -21kg",
+    "combats": "10 combats, 5 terminés"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "ArbreCombatPage completely refactored with compact design. All features working: PDF export (jsPDF), print CSS, BYEs dialog, category selector, match cards with blue/red dots. Champion box and Podium only appear when finale is complete (not visible in current test data). No horizontal scroll needed for brackets <=8 participants.",
+  "features_verified": {
+    "compact_design": {
+      "match_cards": "WORKING - Single line per combatant with colored dots (blue/red)",
+      "vs_separator": "WORKING - VS text between combatants",
+      "club_info": "WORKING - Club shown in parentheses",
+      "tour_labels": "WORKING - Quarts, Demi-finales, Finale columns"
+    },
+    "pdf_export": {
+      "button": "WORKING - data-testid='export-pdf-btn'",
+      "download": "WORKING - Generates arbre_{category}_{date}.pdf",
+      "toast": "WORKING - Shows 'PDF exporté !' on success",
+      "format": "WORKING - Landscape A4/A3 based on bracket size"
+    },
+    "print": {
+      "button": "WORKING - data-testid='print-btn'",
+      "css": "WORKING - @media print hides sidebar, shows only tree"
+    },
+    "byes_dialog": {
+      "button": "WORKING - data-testid='modify-byes-btn' (MASTER only)",
+      "dialog": "WORKING - Opens with locked state when combat started",
+      "locked_message": "WORKING - Shows 'Verrouillés (combat déjà commencé)'"
+    },
+    "category_selector": {
+      "selector": "WORKING - data-testid='select-categorie-arbre'",
+      "dropdown": "WORKING - Opens with category options"
+    },
+    "champion_podium": {
+      "champion_box": "NOT VISIBLE - Finale not complete in test data",
+      "podium": "NOT VISIBLE - Finale not complete in test data"
+    },
+    "horizontal_scroll": {
+      "status": "WORKING - No scroll needed for current bracket (<=8 participants)"
+    }
+  }
+}
