@@ -583,9 +583,19 @@ async def list_coaches(user: User = Depends(require_admin)):
 # ============ COMPETITEURS ENDPOINTS ============
 
 def calculate_age(date_naissance: str) -> int:
+    """
+    Calcule l'âge de référence pour la saison sportive.
+    
+    RÈGLE : L'âge de référence est l'âge du licencié au 31/12 
+    de l'année civile qui suit le début de saison.
+    
+    Exemple : Saison 2025-2026 → âge au 31/12/2026
+    Quelqu'un né en 2014 aura 12 ans (2026 - 2014 = 12)
+    """
     birth = datetime.strptime(date_naissance, "%Y-%m-%d")
-    today = datetime.now()
-    return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    current_year = datetime.now().year
+    # Au 31/12, tout le monde a eu son anniversaire → année courante - année naissance
+    return current_year - birth.year
 
 def date_iso_to_fr(date_iso: str) -> str:
     """Convertit une date ISO (YYYY-MM-DD) en format français (JJ/MM/AAAA)"""
