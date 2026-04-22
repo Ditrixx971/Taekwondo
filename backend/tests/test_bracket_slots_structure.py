@@ -128,7 +128,7 @@ class TestBracketSlotStructure:
         total = len(combats)
         
         assert total == 15, f"FAILED: Expected 15 total combats, got {total}"
-        print(f"✓ Total combats is 15 (8+4+2+1)")
+        print(f"✓ Total combats == 15 (8+4+2+1)")
     
     def test_structure_valide_is_true(self):
         """
@@ -142,8 +142,8 @@ class TestBracketSlotStructure:
         data = response.json()
         structure_valide = data.get("structure_valide")
         
-        assert structure_valide is True, f"FAILED: Expected structure_valide=True, got {structure_valide}"
-        print(f"✓ structure_valide is True")
+        assert structure_valide == True, f"FAILED: Expected structure_valide=True, got {structure_valide}"
+        print(f"✓ structure_valide == True")
     
     def test_verification_object_all_valid(self):
         """
@@ -161,7 +161,7 @@ class TestBracketSlotStructure:
             expected = info.get("expected")
             actual = info.get("actual")
             valid = info.get("valid")
-            assert valid is True, f"FAILED: Tour '{tour}' is not valid (expected={expected}, actual={actual})"
+            assert valid == True, f"FAILED: Tour '{tour}' is not valid (expected={expected}, actual={actual})"
             print(f"✓ Tour '{tour}': expected={expected}, actual={actual}, valid={valid}")
     
     def test_bye_slots_visible_with_a_determiner(self):
@@ -213,7 +213,7 @@ class TestBracketSlotStructure:
             termine = bye.get("termine")
             vainqueur_id = bye.get("vainqueur_id")
             
-            assert termine is True, f"FAILED: BYE slot #{bye.get('position')} should have termine=True"
+            assert termine == True, f"FAILED: BYE slot #{bye.get('position')} should have termine=True"
             assert vainqueur_id is not None, f"FAILED: BYE slot #{bye.get('position')} should have vainqueur_id set"
         
         print(f"✓ All 3 BYE slots are marked as termine=True with vainqueur_id set")
@@ -267,7 +267,7 @@ class TestBracketSlotStructure:
         bracket_size = data.get("bracket_size")
         
         assert bracket_size == 16, f"FAILED: Expected bracket_size=16, got {bracket_size}"
-        print(f"✓ bracket_size is 16")
+        print(f"✓ bracket_size == 16")
     
     def test_num_byes_is_3(self):
         """
@@ -282,7 +282,7 @@ class TestBracketSlotStructure:
         num_byes = data.get("nb_byes")
         
         assert num_byes == 3, f"FAILED: Expected nb_byes=3, got {num_byes}"
-        print(f"✓ nb_byes is 3")
+        print(f"✓ nb_byes == 3")
 
 
 if __name__ == "__main__":

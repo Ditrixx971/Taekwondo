@@ -605,7 +605,7 @@ def date_iso_to_fr(date_iso: str) -> str:
         parts = date_iso.split("-")
         if len(parts) == 3:
             return f"{parts[2]}/{parts[1]}/{parts[0]}"
-    except:
+    except Exception:
         pass
     return date_iso
 
@@ -622,7 +622,7 @@ def date_fr_to_iso(date_fr: str) -> str:
         elif "-" in str(date_fr):
             # Déjà en format ISO
             return str(date_fr)
-    except:
+    except Exception:
         pass
     return str(date_fr)
 
@@ -1249,10 +1249,8 @@ async def declarer_forfait(combat_id: str, data: ForfaitRequest, user: User = De
     # Déterminer qui fait forfait et qui gagne
     if data.competiteur_id == combat.get("rouge_id"):
         vainqueur_id = combat.get("bleu_id")
-        forfait_couleur = "rouge"
     elif data.competiteur_id == combat.get("bleu_id"):
         vainqueur_id = combat.get("rouge_id")
-        forfait_couleur = "bleu"
     else:
         raise HTTPException(status_code=400, detail="Ce compétiteur n'est pas dans ce combat")
     
@@ -1483,9 +1481,7 @@ async def get_arbre_combats(categorie_id: str, user: User = Depends(get_current_
     # Ajouter les infos de la catégorie
     categorie = await db.categories.find_one({"categorie_id": categorie_id}, {"_id": 0})
     
-    # Calculer le bracket_size
-    nb_competiteurs = categorie.get("nb_combattants", 0) if categorie else 0
-    
+    # Retourner les données de l'arbre
     return {
         "categorie": categorie,
         "arbre": arbre,
@@ -1576,8 +1572,6 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     bye_count = bracket_size - n
     
     import math
-    num_rounds = int(math.log2(bracket_size))
-    
     # Noms des tours selon la taille du bracket
     def get_tour_names(bracket_size):
         tours = []
@@ -2280,7 +2274,7 @@ async def planifier_combats(categorie_id: str, data: PlanificationCreate, user: 
         heure_parts = data.heure_debut_competition.split(":")
         current_hour = int(heure_parts[0])
         current_minute = int(heure_parts[1])
-    except:
+    except (ValueError, IndexError):
         raise HTTPException(status_code=400, detail="Format d'heure invalide (HH:MM)")
     
     # Planifier chaque combat

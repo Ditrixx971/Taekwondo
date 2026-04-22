@@ -91,12 +91,12 @@ class TestBracketGeneration:
         data = response.json()
         print(f"✓ Bracket generated: {data.get('message')}")
         
-        # Verify bracket_size is 16
+        # Verify bracket_size == 16
         bracket_size = data.get("bracket_size")
         assert bracket_size == 16, f"Expected bracket_size=16, got {bracket_size}"
         print(f"✓ Bracket size: {bracket_size}")
         
-        # Verify num_byes is 3
+        # Verify num_byes == 3
         num_byes = data.get("nb_byes")
         assert num_byes == 3, f"Expected nb_byes=3, got {num_byes}"
         print(f"✓ Number of BYEs: {num_byes}")
