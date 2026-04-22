@@ -217,6 +217,20 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 16 (22 Avr 2026) - Corrections Catégories et Export PDF ✅
+- **Catégories d'âge corrigées**:
+  - Cadets: 12-14 ans ✅
+  - Juniors: 15-17 ans ✅
+  - Seniors: 18-30 ans ✅
+  - Masters: 31+ ans ✅
+- **Calcul de l'âge (règle saison sportive)**:
+  - L'âge de référence = âge au 31/12 de l'année civile
+  - Exemple: né en 2014 → 12 ans en 2026 → Cadet ✅
+- **Export PDF ordre des combats amélioré**:
+  - Nouvelles colonnes: "Score R1 | R2 | R3" après BLEU et ROUGE
+  - Colonne "Vainqueur" ajoutée
+  - Colonnes colorées (bleu clair / rouge clair) pour écriture manuelle
+
 ## API Endpoints Clés
 
 ### Gestion des utilisateurs

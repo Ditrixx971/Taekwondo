@@ -525,19 +525,21 @@ export default function OrdreCombatsPage() {
         getTourLabel(combat.tour),
         categorieNom,
         bleuNom + (bleuClub ? `\n(${bleuClub})` : ""),
+        "",  // Colonne vide pour scores BLEU (R1 R2 R3)
         rougeNom + (rougeClub ? `\n(${rougeClub})` : ""),
-        combat.termine ? "Terminé" : (combat.statut === "en_cours" ? "En cours" : "À venir")
+        "",  // Colonne vide pour scores ROUGE (R1 R2 R3)
+        ""   // Colonne vide pour le vainqueur
       ];
     });
 
-    // Créer le tableau
+    // Créer le tableau avec colonnes de scores
     autoTable(doc, {
       startY: margin + 22,
-      head: [["#", "Heure", "Aire", "Tour", "Catégorie", "BLEU", "ROUGE", "Statut"]],
+      head: [["#", "Heure", "Aire", "Tour", "Catégorie", "BLEU", "Score\nR1 | R2 | R3", "ROUGE", "Score\nR1 | R2 | R3", "Vainqueur"]],
       body: tableData,
       theme: "grid",
       styles: {
-        fontSize: 8,
+        fontSize: 7,
         cellPadding: 2,
         overflow: "linebreak",
         halign: "center",
@@ -547,20 +549,22 @@ export default function OrdreCombatsPage() {
         fillColor: [50, 50, 50],
         textColor: [255, 255, 255],
         fontStyle: "bold",
-        fontSize: 9
+        fontSize: 7
       },
       columnStyles: {
-        0: { cellWidth: 8, halign: "center" },
-        1: { cellWidth: 15, halign: "center" },
-        2: { cellWidth: 20, halign: "center" },
-        3: { cellWidth: 18, halign: "center" },
-        4: { cellWidth: 35, halign: "left" },
-        5: { cellWidth: 55, halign: "left", textColor: [0, 0, 150] },
-        6: { cellWidth: 55, halign: "left", textColor: [150, 0, 0] },
-        7: { cellWidth: 20, halign: "center" }
+        0: { cellWidth: 7, halign: "center" },   // #
+        1: { cellWidth: 12, halign: "center" },  // Heure
+        2: { cellWidth: 15, halign: "center" },  // Aire
+        3: { cellWidth: 15, halign: "center" },  // Tour
+        4: { cellWidth: 30, halign: "left" },    // Catégorie
+        5: { cellWidth: 45, halign: "left", textColor: [0, 0, 150] },   // BLEU
+        6: { cellWidth: 25, halign: "center", fillColor: [230, 240, 255] },  // Score BLEU
+        7: { cellWidth: 45, halign: "left", textColor: [150, 0, 0] },   // ROUGE
+        8: { cellWidth: 25, halign: "center", fillColor: [255, 230, 230] },  // Score ROUGE
+        9: { cellWidth: 25, halign: "center" }   // Vainqueur
       },
       alternateRowStyles: {
-        fillColor: [245, 245, 245]
+        fillColor: [250, 250, 250]
       },
       margin: { left: margin, right: margin },
       didDrawPage: function(data) {
