@@ -141,6 +141,12 @@ export default function SelectionCompetitionPage() {
             </h1>
             <div className="flex items-center gap-4">
               <span className="text-slate-400">{user?.name}</span>
+              <Badge className={
+                user?.role === "master" ? "bg-purple-500" : 
+                user?.role === "admin" ? "bg-red-500" : "bg-blue-500"
+              }>
+                {user?.role === "master" ? "MASTER" : user?.role === "admin" ? "Admin" : "Coach"}
+              </Badge>
               <Button variant="ghost" className="text-slate-400 hover:text-white" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -233,8 +239,11 @@ export default function SelectionCompetitionPage() {
           </h1>
           <div className="flex items-center gap-4">
             <span className="text-slate-400">{user?.name}</span>
-            <Badge className={user?.role === "admin" ? "bg-red-500" : "bg-blue-500"}>
-              {user?.role === "admin" ? "Admin" : "Coach"}
+            <Badge className={
+              user?.role === "master" ? "bg-purple-500" : 
+              user?.role === "admin" ? "bg-red-500" : "bg-blue-500"
+            }>
+              {user?.role === "master" ? "MASTER" : user?.role === "admin" ? "Admin" : "Coach"}
             </Badge>
             <Button variant="ghost" className="text-slate-400 hover:text-white" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />

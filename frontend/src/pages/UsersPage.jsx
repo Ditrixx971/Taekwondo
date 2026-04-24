@@ -260,8 +260,14 @@ export default function UsersPage() {
                   <ul className="space-y-1">
                     <li><strong>Coach :</strong> Ajouter des compétiteurs, voir les combats et résultats (pour les compétitions où il est validé)</li>
                     <li><strong>Administrateur :</strong> Accès complet à toutes les compétitions - gestion des compétiteurs, combats, résultats, médailles et validation des coachs</li>
-                    <li><strong>MASTER :</strong> Super-administrateur - tous les droits + gestion des utilisateurs et suppression de comptes</li>
+                    <li><strong>MASTER :</strong> Super-administrateur - tous les droits + <span className="text-purple-600 font-semibold">éditeur manuel des combats</span>, gestion des utilisateurs, modification des BYEs et suppression de comptes</li>
                   </ul>
+                  {isMaster && (
+                    <p className="mt-3 p-2 bg-purple-100 rounded text-purple-700">
+                      <Crown className="h-4 w-4 inline mr-1" />
+                      <strong>Vous êtes MASTER</strong> - Vous pouvez promouvoir un Administrateur en MASTER via le sélecteur de rôle ci-dessus.
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
