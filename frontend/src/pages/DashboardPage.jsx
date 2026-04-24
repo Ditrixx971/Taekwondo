@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -34,13 +34,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [airesCombat, setAiresCombat] = useState([]);
 
-  useEffect(() => {
-    if (competition) {
-      fetchData();
-    }
-  }, [competition]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!competition) return;
     try {
       const [compRes, airesRes, combatsRes, competiteursRes] = await Promise.all([
         axios.get(`${API}/competitions/${competition.competition_id}`, { withCredentials: true }),
@@ -63,12 +58,16 @@ export default function DashboardPage() {
       
       setAiresCombat(airesRes.data);
     } catch (error) {
-      console.error(error);
+      console.error("Dashboard fetch error:", error);
       toast.error("Erreur lors du chargement");
     } finally {
       setLoading(false);
     }
-  };
+  }, [competition]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getWorkflowStatus = () => {
     if (!stats) return [];

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
@@ -46,18 +46,22 @@ export default function CombatsSuivrePage() {
   const [dureeCombat, setDureeCombat] = useState(6);
   const [pauses, setPauses] = useState([]);
 
-  useEffect(() => {
-    fetchData();
-    // Rafraîchir toutes les 30 secondes
-    const interval = setInterval(fetchCombats, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fetchCombats();
+  const fetchCombats = useCallback(async () => {
+    try {
+      let url = `${API}/combats/suivre?`;
+      if (filterCategorie !== "all") url += `categorie_id=${filterCategorie}&`;
+      if (filterTatami !== "all") url += `tatami_id=${filterTatami}&`;
+      if (filterStatut !== "all") url += `statut=${filterStatut}&`;
+      if (filterTour !== "all") url += `tour=${filterTour}&`;
+      
+      const response = await axios.get(url, { withCredentials: true });
+      setCombats(response.data);
+    } catch (error) {
+      console.error("Error fetching combats:", error);
+    }
   }, [filterCategorie, filterTatami, filterStatut, filterTour]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [catRes, tatRes] = await Promise.all([
         axios.get(`${API}/categories`, { withCredentials: true }),
@@ -71,22 +75,18 @@ export default function CombatsSuivrePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchCombats]);
 
-  const fetchCombats = async () => {
-    try {
-      let url = `${API}/combats/suivre?`;
-      if (filterCategorie !== "all") url += `categorie_id=${filterCategorie}&`;
-      if (filterTatami !== "all") url += `tatami_id=${filterTatami}&`;
-      if (filterStatut !== "all") url += `statut=${filterStatut}&`;
-      if (filterTour !== "all") url += `tour=${filterTour}&`;
-      
-      const response = await axios.get(url, { withCredentials: true });
-      setCombats(response.data);
-    } catch (error) {
-      console.error("Error fetching combats:", error);
-    }
-  };
+  useEffect(() => {
+    fetchData();
+    // Rafraîchir toutes les 30 secondes
+    const interval = setInterval(fetchCombats, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData, fetchCombats]);
+
+  useEffect(() => {
+    fetchCombats();
+  }, [fetchCombats]);
 
   const handleLancerCategorie = async (categorieId, mode) => {
     try {

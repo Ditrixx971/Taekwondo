@@ -20,6 +20,14 @@ import { motion } from "framer-motion";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Fonction utilitaire pour échapper les caractères HTML (protection XSS)
+const escapeHtml = (text) => {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
 export default function ArbreCombatsPage() {
   const { isAdmin } = useAuth();
   const [categories, setCategories] = useState([]);
@@ -68,110 +76,63 @@ export default function ArbreCombatsPage() {
     const printWindow = window.open('', '_blank');
     const categorie = arbreData?.categorie;
     
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Arbre des combats - ${categorie?.nom || 'Catégorie'}</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;700&family=Manrope:wght@400;500;600&display=swap');
-          
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: 'Manrope', sans-serif; 
-            padding: 20px;
-            background: white;
-          }
-          h1 { 
-            font-family: 'Chivo', sans-serif; 
-            font-size: 24px; 
-            margin-bottom: 10px;
-            text-transform: uppercase;
-          }
-          .header { 
-            text-align: center; 
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e2e8f0;
-          }
-          .meta { color: #64748b; font-size: 14px; }
-          .bracket { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
-          .round { min-width: 200px; }
-          .round-title { 
-            font-weight: bold; 
-            text-transform: uppercase; 
-            font-size: 12px;
-            color: #64748b;
-            margin-bottom: 15px;
-            text-align: center;
-          }
-          .match { 
-            background: #f8fafc; 
-            border: 1px solid #e2e8f0; 
-            border-radius: 8px; 
-            padding: 12px;
-            margin-bottom: 10px;
-          }
-          .match-header {
-            font-size: 10px;
-            color: #94a3b8;
-            margin-bottom: 8px;
-          }
-          .fighter { 
-            display: flex; 
-            align-items: center; 
-            gap: 8px;
-            padding: 6px 0;
-          }
-          .fighter.rouge { border-left: 3px solid #ef4444; padding-left: 8px; }
-          .fighter.bleu { border-left: 3px solid #3b82f6; padding-left: 8px; }
-          .fighter.winner { background: #f0fdf4; font-weight: bold; }
-          .score { 
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 18px;
-            font-weight: bold;
-          }
-          .vs { 
-            text-align: center; 
-            color: #cbd5e1; 
-            font-size: 10px;
-            margin: 4px 0;
-          }
-          .result { 
-            font-size: 11px; 
-            color: #64748b; 
-            text-align: center;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px dashed #e2e8f0;
-          }
-          @media print {
-            body { padding: 10px; }
-            .bracket { gap: 20px; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>🥋 Arbre des Combats</h1>
-          <p class="meta">${categorie?.nom || 'Catégorie'}</p>
-          <p class="meta">${arbreData?.combats_termines || 0}/${arbreData?.total_combats || 0} combats terminés</p>
-        </div>
-        
-        <div class="bracket">
-          ${renderRoundHTML(arbreData?.arbre?.quart, "Quarts de finale")}
-          ${renderRoundHTML(arbreData?.arbre?.demi, "Demi-finales")}
-          ${renderRoundHTML(arbreData?.arbre?.bronze, "Match Bronze")}
-          ${renderRoundHTML(arbreData?.arbre?.finale, "Finale")}
-        </div>
-        
-        <script>window.print();</script>
-      </body>
-      </html>
+    // Utiliser l'API DOM sécurisée au lieu de document.write
+    const doc = printWindow.document;
+    doc.open();
+    doc.write('<!DOCTYPE html><html><head></head><body></body></html>');
+    doc.close();
+    
+    // Créer les éléments de manière sécurisée
+    const head = doc.head;
+    const body = doc.body;
+    
+    // Ajouter le titre
+    const title = doc.createElement('title');
+    title.textContent = `Arbre des combats - ${categorie?.nom || 'Catégorie'}`;
+    head.appendChild(title);
+    
+    // Ajouter les styles
+    const style = doc.createElement('style');
+    style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;700&family=Manrope:wght@400;500;600&display=swap');
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Manrope', sans-serif; padding: 20px; background: white; }
+      h1 { font-family: 'Chivo', sans-serif; font-size: 24px; margin-bottom: 10px; text-transform: uppercase; }
+      .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+      .meta { color: #64748b; font-size: 14px; }
+      .bracket { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+      .round { min-width: 200px; }
+      .round-title { font-weight: bold; text-transform: uppercase; font-size: 12px; color: #64748b; margin-bottom: 15px; text-align: center; }
+      .match { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+      .match-header { font-size: 10px; color: #94a3b8; margin-bottom: 8px; }
+      .fighter { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+      .fighter.rouge { border-left: 3px solid #ef4444; padding-left: 8px; }
+      .fighter.bleu { border-left: 3px solid #3b82f6; padding-left: 8px; }
+      .fighter.winner { background: #f0fdf4; font-weight: bold; }
+      .score { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: bold; }
+      .vs { text-align: center; color: #cbd5e1; font-size: 10px; margin: 4px 0; }
+      .result { font-size: 11px; color: #64748b; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+      @media print { body { padding: 10px; } .bracket { gap: 20px; } }
+    `;
+    head.appendChild(style);
+    
+    // Créer le contenu du body
+    body.innerHTML = `
+      <div class="header">
+        <h1>🥋 Arbre des Combats</h1>
+        <p class="meta">${escapeHtml(categorie?.nom || 'Catégorie')}</p>
+        <p class="meta">${arbreData?.combats_termines || 0}/${arbreData?.total_combats || 0} combats terminés</p>
+      </div>
+      <div class="bracket">
+        ${renderRoundHTML(arbreData?.arbre?.quart, "Quarts de finale")}
+        ${renderRoundHTML(arbreData?.arbre?.demi, "Demi-finales")}
+        ${renderRoundHTML(arbreData?.arbre?.bronze, "Match Bronze")}
+        ${renderRoundHTML(arbreData?.arbre?.finale, "Finale")}
+      </div>
     `;
     
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    // Lancer l'impression après un délai pour charger les styles
+    setTimeout(() => printWindow.print(), 500);
   };
 
   const renderRoundHTML = (combats, title) => {
