@@ -176,11 +176,10 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
         </div>
       </div>
 
-      {/* Indicateur "À déterminer" */}
+      {/* Indicateur "À déterminer" - plus discret */}
       {isADeterminer && (
-        <Badge variant="outline" className="border-amber-400 text-amber-600 text-xs flex-shrink-0 print:border-black print:text-black">
-          <HelpCircle className="h-3 w-3 mr-1" />
-          TBD
+        <Badge variant="outline" className="border-amber-400 text-amber-600 text-xs flex-shrink-0 print:hidden">
+          <HelpCircle className="h-3 w-3" />
         </Badge>
       )}
 
@@ -194,7 +193,7 @@ function SortableCombatRow({ combat, index, heureApprox, onForfait, aireNom, sho
         ) : combat.statut === "en_cours" ? (
           <Badge className="bg-blue-500 text-xs">En cours</Badge>
         ) : (
-          <Badge variant="outline" className="text-xs">À venir</Badge>
+          <Badge variant="outline" className="text-xs text-slate-500">À venir</Badge>
         )}
       </div>
 
@@ -951,11 +950,10 @@ export default function OrdreCombatsPage() {
                             </div>
                           </div>
 
-                          {/* Indicateur TBD */}
+                          {/* Indicateur TBD - juste l'icône */}
                           {isADeterminer && (
                             <Badge variant="outline" className="border-amber-400 text-amber-600 text-xs flex-shrink-0">
-                              <HelpCircle className="h-3 w-3 mr-1" />
-                              TBD
+                              <HelpCircle className="h-3 w-3" />
                             </Badge>
                           )}
 
@@ -966,7 +964,7 @@ export default function OrdreCombatsPage() {
                             ) : combat.statut === "en_cours" ? (
                               <Badge className="bg-blue-500 text-xs">En cours</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-xs">À venir</Badge>
+                              <Badge variant="outline" className="text-xs text-slate-500">À venir</Badge>
                             )}
                           </div>
                         </div>
