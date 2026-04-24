@@ -217,6 +217,16 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 17 (24 Avr 2026) - Setup First MASTER ✅
+- **Endpoint backend `GET /api/auth/check-master`**: Retourne `{has_master, master_count}` pour savoir si un MASTER existe.
+- **Endpoint backend `POST /api/auth/setup-master`**: Permet à un utilisateur authentifié de se promouvoir MASTER **uniquement** si aucun MASTER n'existe (sinon 403).
+- **UI `SelectionCompetitionPage`**: Bannière violette "Configuration initiale requise" avec bouton "Devenir le premier MASTER". Visible uniquement si `has_master=false`.
+- **Tests validés**:
+  - check-master retourne correctement has_master/count
+  - setup-master promeut en master quand 0 master
+  - setup-master renvoie 403 quand un master existe déjà
+  - Bannière s'affiche correctement dans l'UI (screenshot validé)
+
 ### Phase 16 (22 Avr 2026) - Corrections Catégories et Export PDF ✅
 - **Catégories d'âge corrigées**:
   - Cadets: 12-14 ans ✅
