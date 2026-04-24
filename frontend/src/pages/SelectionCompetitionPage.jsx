@@ -20,7 +20,9 @@ import {
   ChevronRight,
   CheckCircle2,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Crown,
+  ShieldCheck
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -28,7 +30,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function SelectionCompetitionPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, setUser } = useAuth();
   const { competition, selectCompetition, clearCompetition } = useCompetition();
   const navigate = useNavigate();
   
@@ -37,6 +39,8 @@ export default function SelectionCompetitionPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, competition: null });
   const [deleting, setDeleting] = useState(false);
+  const [hasMaster, setHasMaster] = useState(true); // Par défaut true pour éviter le flash
+  const [setupMasterLoading, setSetupMasterLoading] = useState(false);
   const [form, setForm] = useState({
     nom: "",
     date: "",
@@ -56,6 +60,36 @@ export default function SelectionCompetitionPage() {
       toast.error("Erreur lors du chargement");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Vérifier s'il existe un compte MASTER
+  const checkMasterExists = async () => {
+    try {
+      const response = await axios.get(`${API}/auth/check-master`, { withCredentials: true });
+      setHasMaster(response.data.has_master);
+    } catch (error) {
+      console.error("Error checking master:", error);
+    }
+  };
+
+  useEffect(() => {
+    checkMasterExists();
+  }, []);
+
+  // Devenir le premier MASTER
+  const handleSetupMaster = async () => {
+    setSetupMasterLoading(true);
+    try {
+      const response = await axios.post(`${API}/auth/setup-master`, {}, { withCredentials: true });
+      toast.success(response.data.message);
+      // Mettre à jour l'utilisateur local
+      setUser({ ...user, role: "master" });
+      setHasMaster(true);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de la promotion");
+    } finally {
+      setSetupMasterLoading(false);
     }
   };
 
@@ -264,6 +298,52 @@ export default function SelectionCompetitionPage() {
             Choisissez la compétition sur laquelle vous souhaitez travailler
           </p>
         </motion.div>
+
+        {/* Alerte Setup MASTER - Visible seulement s'il n'y a pas de MASTER */}
+        {!hasMaster && user?.role !== "master" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-2xl mx-auto mb-8"
+          >
+            <Card className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border-purple-500/50">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-purple-500/20 rounded-full">
+                    <Crown className="h-8 w-8 text-purple-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-white mb-2">
+                      Configuration initiale requise
+                    </h3>
+                    <p className="text-purple-200 mb-4">
+                      Aucun compte <strong>MASTER</strong> n'existe dans le système. 
+                      Le MASTER est le super-administrateur qui peut gérer tous les utilisateurs 
+                      et accéder à l'éditeur manuel des combats.
+                    </p>
+                    <Button 
+                      onClick={handleSetupMaster}
+                      disabled={setupMasterLoading}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {setupMasterLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Configuration...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-5 w-5 mr-2" />
+                          Devenir le premier MASTER
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Liste des compétitions */}
         <div className="max-w-4xl mx-auto">

@@ -463,6 +463,51 @@ async def logout(request: Request, response: Response):
     response.delete_cookie("session_token", path="/", samesite="none", secure=True)
     return {"message": "Déconnecté"}
 
+# ============ SETUP MASTER (Premier démarrage) ============
+
+@api_router.get("/auth/check-master")
+async def check_master_exists():
+    """Vérifie s'il existe déjà un compte MASTER dans le système."""
+    master_count = await db.users.count_documents({"role": "master"})
+    return {
+        "has_master": master_count > 0,
+        "master_count": master_count
+    }
+
+@api_router.post("/auth/setup-master")
+async def setup_first_master(user: User = Depends(get_current_user)):
+    """
+    Permet de promouvoir un admin en MASTER uniquement s'il n'existe aucun MASTER.
+    Sécurisé : ne fonctionne QUE s'il n'y a pas de MASTER dans le système.
+    """
+    # Vérifier qu'il n'existe pas déjà un master
+    master_exists = await db.users.find_one({"role": "master"}, {"_id": 0})
+    if master_exists:
+        raise HTTPException(
+            status_code=403, 
+            detail="Un compte MASTER existe déjà. Contactez l'administrateur existant."
+        )
+    
+    # L'utilisateur doit être au moins admin
+    if user.role not in ["admin", "coach"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Seul un utilisateur enregistré peut devenir le premier MASTER"
+        )
+    
+    # Promouvoir l'utilisateur en MASTER
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"role": "master"}}
+    )
+    
+    return {
+        "message": f"Félicitations ! Vous êtes maintenant MASTER.",
+        "user_id": user.user_id,
+        "email": user.email,
+        "new_role": "master"
+    }
+
 # ============ COMPETITIONS ENDPOINTS ============
 
 async def user_can_access_competition(user: User, competition_id: str) -> bool:
