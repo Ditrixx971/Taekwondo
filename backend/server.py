@@ -83,8 +83,9 @@ class Competiteur(BaseModel):
     poids_declare: float  # Poids déclaré par le coach à l'inscription
     poids_officiel: Optional[float] = None  # Poids officiel après pesée
     club: str
-    categorie_id: Optional[str] = None
-    surclasse: bool = False  # Si le compétiteur est surclassé dans une catégorie supérieure
+    categorie_id: Optional[str] = None  # Catégorie d'origine (auto-calculée selon âge/poids)
+    surclasse: bool = False  # Si le compétiteur est aussi surclassé dans une catégorie supérieure
+    categorie_surclasse_id: Optional[str] = None  # Catégorie supplémentaire de surclassement (le compétiteur participe AUSSI dans celle-ci)
     pese: bool = False  # Statut de pesée
     disqualifie: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -688,6 +689,20 @@ async def assign_categorie(competiteur: dict, competition_id: str) -> Optional[s
     
     return categorie["categorie_id"] if categorie else None
 
+def categorie_filter(categorie_id: str, base_filter: Optional[dict] = None) -> dict:
+    """
+    Construit un filtre MongoDB pour récupérer les compétiteurs d'une catégorie.
+    Inclut les compétiteurs dont la catégorie d'origine OU la catégorie de surclassement
+    correspond à categorie_id.
+    """
+    f = {"$or": [
+        {"categorie_id": categorie_id},
+        {"categorie_surclasse_id": categorie_id}
+    ]}
+    if base_filter:
+        f.update(base_filter)
+    return f
+
 @api_router.get("/competiteurs")
 async def list_competiteurs(
     competition_id: Optional[str] = None,
@@ -703,7 +718,11 @@ async def list_competiteurs(
             raise HTTPException(status_code=403, detail="Accès non autorisé")
         query["competition_id"] = competition_id
     if categorie_id:
-        query["categorie_id"] = categorie_id
+        # Inclure les compétiteurs surclassés dans cette catégorie
+        query["$or"] = [
+            {"categorie_id": categorie_id},
+            {"categorie_surclasse_id": categorie_id}
+        ]
     if club:
         query["club"] = club
     if pese is not None:
@@ -746,9 +765,12 @@ async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_c
     comp_dict = comp.model_dump()
     comp_dict["created_at"] = comp_dict["created_at"].isoformat()
     
-    # Si surclassé, utiliser la catégorie choisie manuellement
+    # 1) Toujours assigner la catégorie d'origine (auto, basée sur âge/poids/sexe)
+    categorie_origine_id = await assign_categorie(comp_dict, data.competition_id)
+    comp_dict["categorie_id"] = categorie_origine_id
+    
+    # 2) Si surclassé : valider et stocker la catégorie de surclassement EN PLUS
     if data.surclasse and data.categorie_surclasse_id:
-        # Vérifier que la catégorie existe et est valide
         categorie = await db.categories.find_one({
             "categorie_id": data.categorie_surclasse_id,
             "competition_id": data.competition_id
@@ -756,18 +778,25 @@ async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_c
         if not categorie:
             raise HTTPException(status_code=400, detail="Catégorie de surclassement invalide")
         
-        # Vérifier que le poids est compatible avec la catégorie
+        # Empêcher de "se surclasser" dans sa propre catégorie d'origine
+        if data.categorie_surclasse_id == categorie_origine_id:
+            raise HTTPException(
+                status_code=400,
+                detail="La catégorie de surclassement doit être différente de la catégorie d'origine"
+            )
+        
+        # Vérifier que le poids est compatible avec la catégorie de surclassement
         if data.poids_declare < categorie["poids_min"] or data.poids_declare > categorie["poids_max"]:
             raise HTTPException(
                 status_code=400, 
                 detail=f"Le poids {data.poids_declare}kg n'est pas compatible avec la catégorie {categorie['nom']} ({categorie['poids_min']}-{categorie['poids_max']}kg)"
             )
         
-        comp_dict["categorie_id"] = data.categorie_surclasse_id
+        comp_dict["categorie_surclasse_id"] = data.categorie_surclasse_id
+        comp_dict["surclasse"] = True
     else:
-        # Attribution automatique basée sur l'âge et le poids
-        categorie_id = await assign_categorie(comp_dict, data.competition_id)
-        comp_dict["categorie_id"] = categorie_id
+        comp_dict["surclasse"] = False
+        comp_dict["categorie_surclasse_id"] = None
     
     await db.competiteurs.insert_one(comp_dict)
     comp_dict.pop("_id", None)
@@ -780,8 +809,35 @@ async def update_competiteur(competiteur_id: str, data: CompetiteurCreate, user:
         raise HTTPException(status_code=404, detail="Compétiteur non trouvé")
     
     update_data = data.model_dump()
-    categorie_id = await assign_categorie({**update_data, "date_naissance": update_data["date_naissance"]}, data.competition_id)
-    update_data["categorie_id"] = categorie_id
+    
+    # 1) Recalculer la catégorie d'origine
+    categorie_origine_id = await assign_categorie(update_data, data.competition_id)
+    update_data["categorie_id"] = categorie_origine_id
+    
+    # 2) Gérer le surclassement
+    if data.surclasse and data.categorie_surclasse_id:
+        categorie = await db.categories.find_one({
+            "categorie_id": data.categorie_surclasse_id,
+            "competition_id": data.competition_id
+        }, {"_id": 0})
+        if not categorie:
+            raise HTTPException(status_code=400, detail="Catégorie de surclassement invalide")
+        if data.categorie_surclasse_id == categorie_origine_id:
+            raise HTTPException(
+                status_code=400,
+                detail="La catégorie de surclassement doit être différente de la catégorie d'origine"
+            )
+        poids_ref = update_data.get("poids_declare")
+        if poids_ref is not None and (poids_ref < categorie["poids_min"] or poids_ref > categorie["poids_max"]):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Le poids {poids_ref}kg n'est pas compatible avec la catégorie {categorie['nom']} ({categorie['poids_min']}-{categorie['poids_max']}kg)"
+            )
+        update_data["categorie_surclasse_id"] = data.categorie_surclasse_id
+        update_data["surclasse"] = True
+    else:
+        update_data["categorie_surclasse_id"] = None
+        update_data["surclasse"] = False
     
     await db.competiteurs.update_one(
         {"competiteur_id": competiteur_id},
@@ -834,26 +890,40 @@ async def enregistrer_pesee(competiteur_id: str, data: PeseeUpdate, user: User =
         "pese": True
     }
     
-    # Recalculer la catégorie basée sur le poids officiel
+    # Recalculer la catégorie d'origine basée sur le poids officiel
     comp_updated = {**comp, "poids_officiel": data.poids_officiel}
     nouvelle_categorie = await assign_categorie(comp_updated, comp["competition_id"])
     
     ancienne_categorie = comp.get("categorie_id")
     update_data["categorie_id"] = nouvelle_categorie
     
+    # Vérifier que la catégorie de surclassement reste compatible avec le poids officiel
+    surclasse_id = comp.get("categorie_surclasse_id")
+    surclassement_invalide = False
+    if comp.get("surclasse") and surclasse_id:
+        cat_surclasse = await db.categories.find_one({"categorie_id": surclasse_id}, {"_id": 0})
+        if cat_surclasse:
+            if (data.poids_officiel < cat_surclasse["poids_min"] or 
+                data.poids_officiel > cat_surclasse["poids_max"] or
+                surclasse_id == nouvelle_categorie):
+                # Surclassement n'est plus valide → on le retire
+                update_data["surclasse"] = False
+                update_data["categorie_surclasse_id"] = None
+                surclassement_invalide = True
+    
     await db.competiteurs.update_one(
         {"competiteur_id": competiteur_id},
         {"$set": update_data}
     )
     
-    # Si la catégorie a changé, notifier
     categorie_changee = ancienne_categorie != nouvelle_categorie
     
     return {
         "message": "Pesée enregistrée",
         "poids_officiel": data.poids_officiel,
         "categorie_id": nouvelle_categorie,
-        "categorie_changee": categorie_changee
+        "categorie_changee": categorie_changee,
+        "surclassement_invalide": surclassement_invalide
     }
 
 @api_router.put("/pesee/{competiteur_id}/poids-declare")
@@ -1591,8 +1661,15 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     await db.medailles.delete_many({"categorie_id": categorie_id})
     
     # Récupérer les compétiteurs (non disqualifiés)
+    # Inclure les surclassés qui participent à cette catégorie
     competiteurs = await db.competiteurs.find(
-        {"categorie_id": categorie_id, "disqualifie": False},
+        {
+            "$or": [
+                {"categorie_id": categorie_id},
+                {"categorie_surclasse_id": categorie_id}
+            ],
+            "disqualifie": False
+        },
         {"_id": 0}
     ).sort("created_at", 1).to_list(100)
     
@@ -2006,9 +2083,15 @@ async def get_byes_info(categorie_id: str, user: User = Depends(get_current_user
     if not categorie:
         raise HTTPException(status_code=404, detail="Catégorie non trouvée")
     
-    # Récupérer tous les compétiteurs de la catégorie
+    # Récupérer tous les compétiteurs de la catégorie (incluant surclassés)
     competiteurs = await db.competiteurs.find(
-        {"categorie_id": categorie_id, "disqualifie": False},
+        {
+            "$or": [
+                {"categorie_id": categorie_id},
+                {"categorie_surclasse_id": categorie_id}
+            ],
+            "disqualifie": False
+        },
         {"_id": 0}
     ).sort("created_at", 1).to_list(100)
     
@@ -2098,9 +2181,15 @@ async def modifier_byes(categorie_id: str, data: ByeModificationRequest, user: U
             detail="🔒 Les BYEs sont verrouillés car un combat a déjà commencé dans cette catégorie"
         )
     
-    # Récupérer les compétiteurs
+    # Récupérer les compétiteurs (incluant surclassés)
     competiteurs = await db.competiteurs.find(
-        {"categorie_id": categorie_id, "disqualifie": False},
+        {
+            "$or": [
+                {"categorie_id": categorie_id},
+                {"categorie_surclasse_id": categorie_id}
+            ],
+            "disqualifie": False
+        },
         {"_id": 0}
     ).sort("created_at", 1).to_list(100)
     
@@ -3136,10 +3225,12 @@ async def import_competiteurs_excel(
                 comp_dict = comp.model_dump()
                 comp_dict["created_at"] = comp_dict["created_at"].isoformat()
                 
-                # Attribution automatique de la catégorie
-                if not surclasse:
-                    categorie_id = await assign_categorie(comp_dict, competition_id)
-                    comp_dict["categorie_id"] = categorie_id
+                # Attribution automatique de la catégorie d'origine (toujours)
+                categorie_id = await assign_categorie(comp_dict, competition_id)
+                comp_dict["categorie_id"] = categorie_id
+                # Note: l'import Excel ne gère pas le surclassement multi-catégorie (à faire manuellement après import)
+                comp_dict["surclasse"] = False
+                comp_dict["categorie_surclasse_id"] = None
                 
                 await db.competiteurs.insert_one(comp_dict)
                 imported += 1

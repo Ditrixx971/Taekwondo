@@ -217,6 +217,17 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 18 (24 Avr 2026) - Surclassement Multi-Catégories ✅
+- **Comportement corrigé** : un compétiteur surclassé participe désormais dans **les 2 catégories** (sa catégorie d'origine ET la catégorie de surclassement).
+- **Backend (`server.py`)**:
+  - Modèle `Competiteur` : nouveau champ `categorie_surclasse_id` (en plus de `categorie_id`)
+  - `categorie_id` reste TOUJOURS la catégorie d'origine (auto-calculée)
+  - `create_competiteur` / `update_competiteur` : valident que la cat de surclassement diffère de la cat d'origine et que le poids est compatible
+  - `list_competiteurs` (filtre par catégorie), `generer_tableau`, `get_byes_info`, `modifier_byes` : utilisent `$or` pour inclure les surclassés
+  - `enregistrer_pesee` : recalcule la cat d'origine et invalide automatiquement le surclassement si le poids officiel n'est plus compatible
+- **Frontend (`CompetiteursPage.jsx`)** : affiche les 2 badges de catégorie ("Cat origine + Cat surclassement") et message UX clarifié
+- **Tests validés** : compétiteur Cadet -53kg surclassé en Junior -51kg → apparaît dans la liste des 2 catégories
+
 ### Phase 17 (24 Avr 2026) - Setup First MASTER ✅
 - **Endpoint backend `GET /api/auth/check-master`**: Retourne `{has_master, master_count}` pour savoir si un MASTER existe.
 - **Endpoint backend `POST /api/auth/setup-master`**: Permet à un utilisateur authentifié de se promouvoir MASTER **uniquement** si aucun MASTER n'existe (sinon 403).

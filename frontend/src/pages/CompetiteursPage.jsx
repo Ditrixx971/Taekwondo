@@ -202,7 +202,7 @@ export default function CompetiteursPage() {
       poids_declare: comp.poids_declare?.toString() || "",
       club: comp.club,
       surclasse: comp.surclasse || false,
-      categorie_surclasse_id: comp.surclasse ? comp.categorie_id : ""
+      categorie_surclasse_id: comp.categorie_surclasse_id || ""
     });
     setEditingId(comp.competiteur_id);
     setDialogOpen(true);
@@ -686,7 +686,7 @@ export default function CompetiteursPage() {
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-blue-600">
-                            Le compétiteur sera inscrit dans cette catégorie supérieure.
+                            Le compétiteur participera dans <strong>les deux catégories</strong> : sa catégorie d&apos;origine ET cette catégorie supérieure.
                           </p>
                         </>
                       )}
@@ -795,16 +795,18 @@ export default function CompetiteursPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline">
-                                {getCategorieNom(comp.categorie_id)}
-                              </Badge>
-                              {comp.surclasse && (
-                                <Badge className="bg-blue-100 text-blue-700 text-xs">
-                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                  Surclassé
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <Badge variant="outline">
+                                  {getCategorieNom(comp.categorie_id)}
                                 </Badge>
-                              )}
+                                {comp.surclasse && comp.categorie_surclasse_id && (
+                                  <Badge className="bg-blue-100 text-blue-700 text-xs">
+                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                    + {getCategorieNom(comp.categorie_surclasse_id)}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>
