@@ -118,12 +118,18 @@ export default function CategoriesPage() {
   };
 
   const getCompetiteursCount = (categorieId) => {
-    return competiteurs.filter(c => c.categorie_id === categorieId).length;
+    return competiteurs.filter(c => 
+      (c.categorie_id === categorieId && !c.surclasse_uniquement) ||
+      c.categorie_surclasse_id === categorieId
+    ).length;
   };
 
-  // Obtenir les compétiteurs d'une catégorie
+  // Obtenir les compétiteurs d'une catégorie (incluant surclassés)
   const getCompetiteursForCategorie = (categorieId) => {
-    return competiteurs.filter(c => c.categorie_id === categorieId);
+    return competiteurs.filter(c => 
+      (c.categorie_id === categorieId && !c.surclasse_uniquement) ||
+      c.categorie_surclasse_id === categorieId
+    );
   };
 
   // Ouvrir les détails d'une catégorie

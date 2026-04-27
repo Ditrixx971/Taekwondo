@@ -172,9 +172,12 @@ export default function ResultatsPage() {
         axios.get(`${API}/combats?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
       
-      // Compter les compétiteurs par catégorie et vérifier si finale terminée
+      // Compter les compétiteurs par catégorie et vérifier si finale terminée (incluant surclassés)
       const catsWithInfo = catRes.data.map(cat => {
-        const catCompetiteurs = compRes.data.filter(c => c.categorie_id === cat.categorie_id);
+        const catCompetiteurs = compRes.data.filter(c => 
+          (c.categorie_id === cat.categorie_id && !c.surclasse_uniquement) ||
+          c.categorie_surclasse_id === cat.categorie_id
+        );
         const catCombats = combatsRes.data.filter(c => c.categorie_id === cat.categorie_id);
         const finale = catCombats.find(c => c.tour === "finale");
         return {

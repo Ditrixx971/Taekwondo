@@ -71,9 +71,17 @@ export default function GestionCombatsPage() {
       
       setAllCompetiteurs(allCompetiteursData);
       
+      // Helper : un compétiteur appartient à une catégorie si :
+      //  - sa cat origine = catégorie ET il n'est pas en surclasse_uniquement
+      //  - OU sa cat de surclassement = catégorie
+      const competiteursInCategorie = (cat) => allCompetiteursData.filter(c => 
+        (c.categorie_id === cat.categorie_id && !c.surclasse_uniquement) ||
+        c.categorie_surclasse_id === cat.categorie_id
+      );
+      
       // Pour chaque catégorie, compter les compétiteurs (sans requête supplémentaire)
       const catsWithCounts = catRes.data.map((cat) => {
-        const competiteurs = allCompetiteursData.filter(c => c.categorie_id === cat.categorie_id);
+        const competiteurs = competiteursInCategorie(cat);
         const catCombats = allCombats.filter(c => c.categorie_id === cat.categorie_id);
         return {
           ...cat,
@@ -160,8 +168,11 @@ export default function GestionCombatsPage() {
     setLoadingDetails(true);
     
     try {
-      // Filtrer les compétiteurs de cette catégorie
-      const competiteurs = allCompetiteurs.filter(c => c.categorie_id === cat.categorie_id);
+      // Filtrer les compétiteurs de cette catégorie (incluant surclassés)
+      const competiteurs = allCompetiteurs.filter(c => 
+        (c.categorie_id === cat.categorie_id && !c.surclasse_uniquement) ||
+        c.categorie_surclasse_id === cat.categorie_id
+      );
       setCategorieCompetiteurs(competiteurs);
       
       // Charger l'arbre de combat si des combats existent

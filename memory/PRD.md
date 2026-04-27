@@ -217,6 +217,18 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 19d (24 Avr 2026) - Fix Affichage Surclassés dans toutes les vues ✅
+- **Bug** : un compétiteur surclassé n'apparaissait pas dans la catégorie de surclassement sur les pages frontend (filtrage strict par `categorie_id`).
+- **Pages corrigées** :
+  - `GestionCombatsPage.jsx` : compteur de catégorie + détails de catégorie incluent désormais les surclassés
+  - `ArbreCombatPage.jsx` : liste des compétiteurs de l'arbre inclut les surclassés
+  - `CategoriesPage.jsx` : `getCompetiteursCount` et `getCompetiteursForCategorie` incluent les surclassés
+  - `ResultatsPage.jsx` : compteur par catégorie inclut les surclassés
+- **Logique de filtre uniformisée** : un compétiteur appartient à une catégorie si :
+  - sa cat origine = catégorie ET il n'est pas en mode `surclasse_uniquement`
+  - OU sa cat de surclassement = catégorie
+- **Test e2e validé** ✅ : 2 Benjamins surclassés Minimes -33 → apparaissent bien dans la liste Minimes -33 (passe de 3 à 5 compétiteurs).
+
 ### Phase 19c (24 Avr 2026) - Mode "Surclassement Exclusif" ✅
 - **Nouvelle option** : un compétiteur surclassé peut désormais combattre **UNIQUEMENT** dans la catégorie de surclassement (sa catégorie d'origine est ignorée).
 - **Backend** : nouveau champ `surclasse_uniquement: bool` sur le modèle `Competiteur`. Les requêtes de listing par catégorie excluent les compétiteurs en mode `surclasse_uniquement` de leur catégorie d'origine.

@@ -271,7 +271,10 @@ export default function ArbreCombatPage() {
         axios.get(`${API}/competiteurs?competition_id=${competition.competition_id}`, { withCredentials: true })
       ]);
       
-      setAllCompetiteurs(competiteursRes.data.filter(c => c.categorie_id === selectedCategorie));
+      setAllCompetiteurs(competiteursRes.data.filter(c => 
+        (c.categorie_id === selectedCategorie && !c.surclasse_uniquement) ||
+        c.categorie_surclasse_id === selectedCategorie
+      ));
       setArbreData(arbreRes.data);
     } catch (error) {
       toast.error("Erreur lors du chargement de l'arbre");
