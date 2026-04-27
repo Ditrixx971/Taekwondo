@@ -217,6 +217,15 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 19c (24 Avr 2026) - Mode "Surclassement Exclusif" ✅
+- **Nouvelle option** : un compétiteur surclassé peut désormais combattre **UNIQUEMENT** dans la catégorie de surclassement (sa catégorie d'origine est ignorée).
+- **Backend** : nouveau champ `surclasse_uniquement: bool` sur le modèle `Competiteur`. Les requêtes de listing par catégorie excluent les compétiteurs en mode `surclasse_uniquement` de leur catégorie d'origine.
+- **Frontend (`CompetiteursPage.jsx`)** : 2 radio buttons dans le formulaire de surclassement :
+  - "Combat dans les 2 catégories (origine + surclassement)"
+  - "Combat uniquement dans la catégorie de surclassement (pas dans sa catégorie d'origine)"
+- **Affichage liste** : badge barré sur la cat d'origine si mode exclusif.
+- **Tests validés** ✅ : Junior 44kg surclassé Senior -54kg en mode UNIQUEMENT → absent de la liste Junior -45 mais présent en Senior -54.
+
 ### Phase 19b (24 Avr 2026) - Règle de Surclassement Poids Corrigée ✅
 - **Règle Taekwondo** : un compétiteur peut être surclassé dans une catégorie de poids supérieure même si son poids est inférieur au `poids_min` de cette catégorie. Seul le `poids_max` est contraignant.
 - **Filtre backend `/api/categories/for-surclassement`** : ne contraint plus le `poids_min`, seulement `poids <= poids_max`.

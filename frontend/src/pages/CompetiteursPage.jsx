@@ -26,7 +26,8 @@ const initialForm = {
   poids_declare: "",
   club: "",
   surclasse: false,
-  categorie_surclasse_id: ""
+  categorie_surclasse_id: "",
+  surclasse_uniquement: false
 };
 
 // Fonctions de conversion de date
@@ -172,7 +173,8 @@ export default function CompetiteursPage() {
         poids_declare: parseFloat(form.poids_declare),
         competition_id: competition.competition_id,
         surclasse: form.surclasse,
-        categorie_surclasse_id: form.surclasse ? form.categorie_surclasse_id : null
+        categorie_surclasse_id: form.surclasse ? form.categorie_surclasse_id : null,
+        surclasse_uniquement: form.surclasse ? !!form.surclasse_uniquement : false
       };
       
       if (form.surclasse && !form.categorie_surclasse_id) {
@@ -206,7 +208,8 @@ export default function CompetiteursPage() {
       poids_declare: comp.poids_declare?.toString() || "",
       club: comp.club,
       surclasse: comp.surclasse || false,
-      categorie_surclasse_id: comp.categorie_surclasse_id || ""
+      categorie_surclasse_id: comp.categorie_surclasse_id || "",
+      surclasse_uniquement: comp.surclasse_uniquement || false
     });
     setEditingId(comp.competiteur_id);
     setDialogOpen(true);
@@ -689,8 +692,45 @@ export default function CompetiteursPage() {
                               ))}
                             </SelectContent>
                           </Select>
+                          
+                          {/* Mode de participation */}
+                          <div className="mt-3 space-y-2 rounded-md border border-blue-200 bg-blue-50/50 p-3">
+                            <Label className="text-xs font-semibold text-slate-700 uppercase">
+                              Mode de participation
+                            </Label>
+                            <div className="space-y-2">
+                              <label className="flex items-start gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="surclasse_mode"
+                                  className="mt-1"
+                                  checked={!form.surclasse_uniquement}
+                                  onChange={() => setForm({ ...form, surclasse_uniquement: false })}
+                                  data-testid="mode-deux-categories"
+                                />
+                                <span className="text-xs text-slate-700">
+                                  <strong>Combat dans les 2 catégories</strong> (origine + surclassement)
+                                </span>
+                              </label>
+                              <label className="flex items-start gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="surclasse_mode"
+                                  className="mt-1"
+                                  checked={!!form.surclasse_uniquement}
+                                  onChange={() => setForm({ ...form, surclasse_uniquement: true })}
+                                  data-testid="mode-surclasse-uniquement"
+                                />
+                                <span className="text-xs text-slate-700">
+                                  <strong>Combat uniquement dans la catégorie de surclassement</strong> (pas dans sa catégorie d&apos;origine)
+                                </span>
+                              </label>
+                            </div>
+                          </div>
                           <p className="text-xs text-blue-600">
-                            Le compétiteur participera dans <strong>les deux catégories</strong> : sa catégorie d&apos;origine ET cette catégorie supérieure.
+                            {form.surclasse_uniquement
+                              ? "Le compétiteur ne combattra QUE dans la catégorie de surclassement (sa catégorie d'origine sera ignorée)."
+                              : "Le compétiteur participera dans les deux catégories : sa catégorie d'origine ET cette catégorie supérieure."}
                           </p>
                         </>
                       )}
@@ -801,13 +841,20 @@ export default function CompetiteursPage() {
                           <TableCell>
                             <div className="flex flex-col gap-1">
                               <div className="flex items-center gap-1 flex-wrap">
-                                <Badge variant="outline">
-                                  {getCategorieNom(comp.categorie_id)}
-                                </Badge>
+                                {!comp.surclasse_uniquement && (
+                                  <Badge variant="outline">
+                                    {getCategorieNom(comp.categorie_id)}
+                                  </Badge>
+                                )}
                                 {comp.surclasse && comp.categorie_surclasse_id && (
                                   <Badge className="bg-blue-100 text-blue-700 text-xs">
                                     <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                    + {getCategorieNom(comp.categorie_surclasse_id)}
+                                    {comp.surclasse_uniquement ? "" : "+ "}{getCategorieNom(comp.categorie_surclasse_id)}
+                                  </Badge>
+                                )}
+                                {comp.surclasse_uniquement && (
+                                  <Badge variant="outline" className="text-xs text-slate-400 line-through">
+                                    {getCategorieNom(comp.categorie_id)}
                                   </Badge>
                                 )}
                               </div>

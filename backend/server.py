@@ -85,7 +85,8 @@ class Competiteur(BaseModel):
     club: str
     categorie_id: Optional[str] = None  # Catégorie d'origine (auto-calculée selon âge/poids)
     surclasse: bool = False  # Si le compétiteur est aussi surclassé dans une catégorie supérieure
-    categorie_surclasse_id: Optional[str] = None  # Catégorie supplémentaire de surclassement (le compétiteur participe AUSSI dans celle-ci)
+    categorie_surclasse_id: Optional[str] = None  # Catégorie supplémentaire de surclassement
+    surclasse_uniquement: bool = False  # Si True, le compétiteur ne combat QUE dans la cat de surclassement (pas dans son origine)
     pese: bool = False  # Statut de pesée
     disqualifie: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -101,6 +102,7 @@ class CompetiteurCreate(BaseModel):
     club: str
     surclasse: bool = False  # Si le compétiteur est surclassé
     categorie_surclasse_id: Optional[str] = None  # Catégorie choisie si surclassé
+    surclasse_uniquement: bool = False  # Si True, NE combat QUE dans la cat de surclassement
 
 class PeseeUpdate(BaseModel):
     poids_officiel: float
@@ -719,8 +721,9 @@ async def list_competiteurs(
         query["competition_id"] = competition_id
     if categorie_id:
         # Inclure les compétiteurs surclassés dans cette catégorie
+        # Exclure ceux dont la cat origine = categorie_id mais qui sont en surclasse_uniquement
         query["$or"] = [
-            {"categorie_id": categorie_id},
+            {"categorie_id": categorie_id, "surclasse_uniquement": {"$ne": True}},
             {"categorie_surclasse_id": categorie_id}
         ]
     if club:
@@ -796,9 +799,11 @@ async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_c
         
         comp_dict["categorie_surclasse_id"] = data.categorie_surclasse_id
         comp_dict["surclasse"] = True
+        comp_dict["surclasse_uniquement"] = bool(data.surclasse_uniquement)
     else:
         comp_dict["surclasse"] = False
         comp_dict["categorie_surclasse_id"] = None
+        comp_dict["surclasse_uniquement"] = False
     
     await db.competiteurs.insert_one(comp_dict)
     comp_dict.pop("_id", None)
@@ -837,9 +842,11 @@ async def update_competiteur(competiteur_id: str, data: CompetiteurCreate, user:
             )
         update_data["categorie_surclasse_id"] = data.categorie_surclasse_id
         update_data["surclasse"] = True
+        update_data["surclasse_uniquement"] = bool(data.surclasse_uniquement)
     else:
         update_data["categorie_surclasse_id"] = None
         update_data["surclasse"] = False
+        update_data["surclasse_uniquement"] = False
     
     await db.competiteurs.update_one(
         {"competiteur_id": competiteur_id},
@@ -1675,10 +1682,11 @@ async def generer_tableau(categorie_id: str, tatami_id: Optional[str] = None, us
     
     # Récupérer les compétiteurs (non disqualifiés)
     # Inclure les surclassés qui participent à cette catégorie
+    # Exclure ceux qui ont la catégorie comme origine mais sont en surclasse_uniquement
     competiteurs = await db.competiteurs.find(
         {
             "$or": [
-                {"categorie_id": categorie_id},
+                {"categorie_id": categorie_id, "surclasse_uniquement": {"$ne": True}},
                 {"categorie_surclasse_id": categorie_id}
             ],
             "disqualifie": False
@@ -2100,7 +2108,7 @@ async def get_byes_info(categorie_id: str, user: User = Depends(get_current_user
     competiteurs = await db.competiteurs.find(
         {
             "$or": [
-                {"categorie_id": categorie_id},
+                {"categorie_id": categorie_id, "surclasse_uniquement": {"$ne": True}},
                 {"categorie_surclasse_id": categorie_id}
             ],
             "disqualifie": False
@@ -2198,7 +2206,7 @@ async def modifier_byes(categorie_id: str, data: ByeModificationRequest, user: U
     competiteurs = await db.competiteurs.find(
         {
             "$or": [
-                {"categorie_id": categorie_id},
+                {"categorie_id": categorie_id, "surclasse_uniquement": {"$ne": True}},
                 {"categorie_surclasse_id": categorie_id}
             ],
             "disqualifie": False
