@@ -786,10 +786,12 @@ async def create_competiteur(data: CompetiteurCreate, user: User = Depends(get_c
             )
         
         # Vérifier que le poids est compatible avec la catégorie de surclassement
-        if data.poids_declare < categorie["poids_min"] or data.poids_declare > categorie["poids_max"]:
+        # Règle Taekwondo : on peut monter dans une catégorie de poids supérieure
+        # (poids <= poids_max suffit ; le poids_min n'est pas contraignant)
+        if data.poids_declare > categorie["poids_max"]:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Le poids {data.poids_declare}kg n'est pas compatible avec la catégorie {categorie['nom']} ({categorie['poids_min']}-{categorie['poids_max']}kg)"
+                detail=f"Le poids {data.poids_declare}kg dépasse la limite max de la catégorie {categorie['nom']} ({categorie['poids_max']}kg)"
             )
         
         comp_dict["categorie_surclasse_id"] = data.categorie_surclasse_id
@@ -828,10 +830,10 @@ async def update_competiteur(competiteur_id: str, data: CompetiteurCreate, user:
                 detail="La catégorie de surclassement doit être différente de la catégorie d'origine"
             )
         poids_ref = update_data.get("poids_declare")
-        if poids_ref is not None and (poids_ref < categorie["poids_min"] or poids_ref > categorie["poids_max"]):
+        if poids_ref is not None and poids_ref > categorie["poids_max"]:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Le poids {poids_ref}kg n'est pas compatible avec la catégorie {categorie['nom']} ({categorie['poids_min']}-{categorie['poids_max']}kg)"
+                detail=f"Le poids {poids_ref}kg dépasse la limite max de la catégorie {categorie['nom']} ({categorie['poids_max']}kg)"
             )
         update_data["categorie_surclasse_id"] = data.categorie_surclasse_id
         update_data["surclasse"] = True
@@ -903,10 +905,9 @@ async def enregistrer_pesee(competiteur_id: str, data: PeseeUpdate, user: User =
     if comp.get("surclasse") and surclasse_id:
         cat_surclasse = await db.categories.find_one({"categorie_id": surclasse_id}, {"_id": 0})
         if cat_surclasse:
-            if (data.poids_officiel < cat_surclasse["poids_min"] or 
-                data.poids_officiel > cat_surclasse["poids_max"] or
+            # Surclassement invalide si poids dépasse poids_max OU si la cat origine = cat surclasse
+            if (data.poids_officiel > cat_surclasse["poids_max"] or
                 surclasse_id == nouvelle_categorie):
-                # Surclassement n'est plus valide → on le retire
                 update_data["surclasse"] = False
                 update_data["categorie_surclasse_id"] = None
                 surclassement_invalide = True
@@ -1122,7 +1123,8 @@ async def get_categories_for_surclassement(
     Filtre :
       - Sexe identique
       - Catégorie d'âge STRICTEMENT supérieure (age_min > age du compétiteur)
-      - Poids compatible (si fourni)
+      - Poids : seul le poids_max est contraint (poids <= poids_max).
+        Un compétiteur plus léger peut monter dans une catégorie de poids supérieure.
     """
     if not await user_can_access_competition(user, competition_id):
         raise HTTPException(status_code=403, detail="Accès non autorisé")
@@ -1133,7 +1135,7 @@ async def get_categories_for_surclassement(
         "age_min": {"$gt": age}  # STRICTEMENT supérieur (tranche d'âge supérieure)
     }
     if poids is not None:
-        query["poids_min"] = {"$lte": poids}
+        # Le compétiteur ne peut PAS combattre dans une catégorie où il est trop lourd
         query["poids_max"] = {"$gte": poids}
     
     categories = await db.categories.find(query, {"_id": 0}).sort([("age_min", 1), ("poids_min", 1)]).to_list(500)

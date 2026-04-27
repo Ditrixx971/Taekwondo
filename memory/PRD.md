@@ -217,6 +217,12 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 19b (24 Avr 2026) - Règle de Surclassement Poids Corrigée ✅
+- **Règle Taekwondo** : un compétiteur peut être surclassé dans une catégorie de poids supérieure même si son poids est inférieur au `poids_min` de cette catégorie. Seul le `poids_max` est contraignant.
+- **Filtre backend `/api/categories/for-surclassement`** : ne contraint plus le `poids_min`, seulement `poids <= poids_max`.
+- **Validation `create_competiteur` / `update_competiteur` / `enregistrer_pesee`** : suppriment la borne `poids_min` du surclassement.
+- **Test validé** : Junior Masculin -45kg (16 ans, 44kg) → peut être surclassé en Senior Masculin -54kg ✅
+
 ### Phase 19 (24 Avr 2026) - Bug Fix Surclassement à l'Édition ✅
 - **Bug corrigé** : impossible de surclasser un compétiteur déjà inscrit (le dropdown listait 54 catégories non pertinentes, dont la catégorie d'origine elle-même).
 - **Backend `GET /api/categories/for-surclassement`** :
