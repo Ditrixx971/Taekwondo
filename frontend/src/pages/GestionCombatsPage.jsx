@@ -24,7 +24,8 @@ import {
   X,
   ChevronRight,
   Eye,
-  TreeDeciduous
+  TreeDeciduous,
+  ArrowUpCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -523,10 +524,20 @@ export default function GestionCombatsPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {categorieCompetiteurs.map((comp) => (
-                            <TableRow key={comp.competiteur_id}>
+                          {categorieCompetiteurs.map((comp) => {
+                            const isSurclasse = comp.surclasse && comp.categorie_surclasse_id === selectedCategorie.categorie_id;
+                            return (
+                            <TableRow key={comp.competiteur_id} data-testid={`gestion-comp-row-${comp.competiteur_id}`}>
                               <TableCell className="font-medium">
-                                {comp.prenom} {comp.nom}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{comp.prenom} {comp.nom}</span>
+                                  {isSurclasse && (
+                                    <Badge className="bg-blue-100 text-blue-700 text-xs" data-testid={`gestion-surclasse-badge-${comp.competiteur_id}`}>
+                                      <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                      Surclassé
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>{comp.club}</TableCell>
                               <TableCell>
@@ -546,7 +557,8 @@ export default function GestionCombatsPage() {
                                 )}
                               </TableCell>
                             </TableRow>
-                          ))}
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>

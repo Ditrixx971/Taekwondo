@@ -217,6 +217,11 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 19e (24 Avr 2026) - Badge "Surclassé" dans Gestion Combats ✅
+- **Ajout d'un badge bleu "↑ Surclassé"** à côté du nom du compétiteur dans la modale de détails de catégorie sur la page Gestion Combats.
+- **Logique** : badge affiché uniquement quand le compétiteur est listé dans une catégorie qui n'est pas sa catégorie d'origine (i.e. via surclassement).
+- **Test e2e validé** ✅ : 2 compétiteurs Benjamins surclassés Minimes -33 → 2 badges "Surclassé" visibles dans la modale.
+
 ### Phase 19d (24 Avr 2026) - Fix Affichage Surclassés dans toutes les vues ✅
 - **Bug** : un compétiteur surclassé n'apparaissait pas dans la catégorie de surclassement sur les pages frontend (filtrage strict par `categorie_id`).
 - **Pages corrigées** :
