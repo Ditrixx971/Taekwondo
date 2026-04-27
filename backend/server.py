@@ -1114,18 +1114,29 @@ async def get_categories_for_surclassement(
     competition_id: str,
     sexe: str,
     age: int,
+    poids: Optional[float] = None,
     user: User = Depends(get_current_user)
 ):
-    """Retourne les catégories disponibles pour le surclassement (âge égal ou supérieur)"""
+    """
+    Retourne les catégories disponibles pour le surclassement.
+    Filtre :
+      - Sexe identique
+      - Catégorie d'âge STRICTEMENT supérieure (age_min > age du compétiteur)
+      - Poids compatible (si fourni)
+    """
     if not await user_can_access_competition(user, competition_id):
         raise HTTPException(status_code=403, detail="Accès non autorisé")
     
-    # Récupérer toutes les catégories du sexe demandé avec âge >= âge du compétiteur
-    categories = await db.categories.find({
+    query = {
         "competition_id": competition_id,
         "sexe": sexe,
-        "age_min": {"$gte": age}
-    }, {"_id": 0}).sort([("age_min", 1), ("poids_min", 1)]).to_list(500)
+        "age_min": {"$gt": age}  # STRICTEMENT supérieur (tranche d'âge supérieure)
+    }
+    if poids is not None:
+        query["poids_min"] = {"$lte": poids}
+        query["poids_max"] = {"$gte": poids}
+    
+    categories = await db.categories.find(query, {"_id": 0}).sort([("age_min", 1), ("poids_min", 1)]).to_list(500)
     
     return categories
 

@@ -217,6 +217,17 @@ Application web de gestion de compétitions de Taekwondo **simplifiée et centr�
   - Chaque tour = exactement la moitié du tour précédent
   - Combats par tour: 5 huitièmes → 4 quarts → 2 demis → 1 finale
 
+### Phase 19 (24 Avr 2026) - Bug Fix Surclassement à l'Édition ✅
+- **Bug corrigé** : impossible de surclasser un compétiteur déjà inscrit (le dropdown listait 54 catégories non pertinentes, dont la catégorie d'origine elle-même).
+- **Backend `GET /api/categories/for-surclassement`** :
+  - Filtre désormais par `age_min > age` (catégorie d'âge **strictement** supérieure)
+  - Accepte un paramètre optionnel `poids` pour ne renvoyer que les catégories de poids compatible
+- **Frontend (`CompetiteursPage.jsx`)** :
+  - Le calcul d'âge utilise désormais la règle saison sportive (31/12)
+  - Le poids déclaré est envoyé en paramètre
+  - Message UX clarifié quand aucune catégorie n'est disponible
+- **Test validé** : Aiveen FREDERIC (Benjamins -21kg, 8 ans, 19kg) → liste filtrée à 5 catégories pertinentes (Minimes -27kg, Cadets -33kg, Juniors -45kg, Seniors -54kg, Masters -58kg). Édition réussie + 2 badges affichés.
+
 ### Phase 18 (24 Avr 2026) - Surclassement Multi-Catégories ✅
 - **Comportement corrigé** : un compétiteur surclassé participe désormais dans **les 2 catégories** (sa catégorie d'origine ET la catégorie de surclassement).
 - **Backend (`server.py`)**:

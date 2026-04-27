@@ -94,12 +94,12 @@ export default function CompetiteursPage() {
 
   // Charger les catégories de surclassement quand les données du form changent
   useEffect(() => {
-    if (form.surclasse && form.date_naissance && form.sexe && competition) {
+    if (form.surclasse && form.date_naissance && form.sexe && form.poids_declare && competition) {
       fetchCategoriesSurclassement();
     } else {
       setCategoriesSurclassement([]);
     }
-  }, [form.surclasse, form.date_naissance, form.sexe, competition]);
+  }, [form.surclasse, form.date_naissance, form.sexe, form.poids_declare, competition]);
 
   const fetchData = async () => {
     try {
@@ -120,18 +120,22 @@ export default function CompetiteursPage() {
     if (!form.date_naissance || !competition || !isValidDateFR(form.date_naissance)) return;
     
     try {
-      // Convertir la date du format FR au format ISO pour le calcul
+      // Calcul de l'âge selon la règle saison sportive (31/12 année civile)
       const dateISO = formatDateISO(form.date_naissance);
       const birthDate = new Date(dateISO);
       const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
+      // Année de référence: si on est avant septembre, année courante, sinon année suivante
+      const anneeRef = today.getMonth() < 8 ? today.getFullYear() : today.getFullYear() + 1;
+      const age = anneeRef - birthDate.getFullYear();
+      
+      const poids = parseFloat(form.poids_declare);
+      const params = new URLSearchParams({ sexe: form.sexe, age: age.toString() });
+      if (!isNaN(poids) && poids > 0) {
+        params.append("poids", poids.toString());
       }
       
       const response = await axios.get(
-        `${API}/categories/for-surclassement/${competition.competition_id}?sexe=${form.sexe}&age=${age}`,
+        `${API}/categories/for-surclassement/${competition.competition_id}?${params.toString()}`,
         { withCredentials: true }
       );
       setCategoriesSurclassement(response.data);
@@ -657,13 +661,13 @@ export default function CompetiteursPage() {
                   
                   {form.surclasse && (
                     <div className="space-y-2 pl-6">
-                      {!form.date_naissance ? (
+                      {!form.date_naissance || !form.poids_declare ? (
                         <p className="text-xs text-amber-600">
-                          Veuillez d&apos;abord renseigner la date de naissance
+                          Veuillez d&apos;abord renseigner la date de naissance et le poids
                         </p>
                       ) : categoriesSurclassement.length === 0 ? (
-                        <p className="text-xs text-slate-500">
-                          Chargement des catégories disponibles...
+                        <p className="text-xs text-amber-600">
+                          Aucune catégorie de surclassement disponible pour ce profil (âge / poids / sexe).
                         </p>
                       ) : (
                         <>
